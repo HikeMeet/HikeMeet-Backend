@@ -20,6 +20,8 @@ router.get('/book/search', BookController.search);
 // User routes
 router.get('/user/all', UserController.all);
 
+router.get('/user/profile', UserController.profile);
+
 if (process.env.NODE_ENV === 'development') {
   router.use('/dev/api-docs', swaggerUi.serve);
   router.get('/dev/api-docs', swaggerUi.setup(apiSpec));

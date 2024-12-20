@@ -5,7 +5,6 @@ import { User } from '../../models/User';
 
 const loginWrapper: RequestHandler = async (req, res) => {
   const { email = undefined, password = undefined } = req.body;
-  console.log("ccccccccccccccccccccccccccccccccccccccc");
 
   const user = await User.findOne({ email });
 
