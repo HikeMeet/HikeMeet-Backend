@@ -5,10 +5,12 @@ import { User } from '../../models/User';
 
 const loginWrapper: RequestHandler = async (req, res) => {
   const { email = undefined, password = undefined } = req.body;
+  console.log("ccccccccccccccccccccccccccccccccccccccc");
 
   const user = await User.findOne({ email });
 
   if (user && user.validPassword(password)) {
+
     const token = jwt.sign(
       {
         email: user.email,
@@ -19,11 +21,13 @@ const loginWrapper: RequestHandler = async (req, res) => {
         expiresIn: '12h'
       }
     );
+
     return res.status(200).json({
       token,
       uid: user._id
     });
   }
+
 
   return res.status(403).json({
     message: 'Auth failed'
