@@ -19,7 +19,7 @@ export interface IUser extends Document {
   encryptPassword: (password: string) => string;
   validPassword: (password: string) => boolean;
 }
-
+//
 interface IUserModel extends Model<IUser> { }
 
 const schema = new Schema({
