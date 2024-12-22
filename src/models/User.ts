@@ -1,41 +1,46 @@
-import {
-  Document, Model, Schema, model
-} from 'mongoose';
 import { hashSync, genSaltSync, compareSync } from 'bcrypt';
+import mongoose, { Document, Model, Schema, model } from 'mongoose';
 
 export interface IUser extends Document {
-  /** Email */
+  username: string; // Added username
   email: string;
-  /** Password */
   password: string;
-  /** Password */
   firstName: string;
-  /** Password */
   lastName: string;
-  /** Created On */
   createdOn: Date;
-  /** Created On */
   updatedOn: Date;
   encryptPassword: (password: string) => string;
   validPassword: (password: string) => boolean;
 }
-//
-interface IUserModel extends Model<IUser> { }
+
+interface IUserModel extends Model<IUser> {}
 
 const schema = new Schema({
+  username: { type: String, required: true, unique: true }, // Added username field
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  createdOn: {
-    required: true,
-    type: Date
+  firstName: { type: String, required: false },
+  lastName: { type: String, required: false },
+  gender: { type: String, required: false },
+  birthDate: { type: Date, required: false },
+  profilePicture: { type: String, required: false },
+  bio: { type: String, required: false },
+  facebookLink: { type: String, required: false },
+  instagramLink: { type: String, required: false },
+  role: { type: String, required: true, enum: ['user', 'admin'], default: 'user' },
+  social: {
+    postsSaved: { type: [mongoose.Schema.Types.ObjectId], required: false },
+    postsLiked: { type: [mongoose.Schema.Types.ObjectId], required: false },
+    totalLikes: { type: Number, required: false },
+    totalShare: { type: Number, required: false },
+    totalSaves: { type: Number, required: false },
   },
-  updatedOn: {
-    required: true,
-    type: Date,
-    default: Date.now
-  }
+  friends: {
+    status: { type: String, required: false },
+    _id: { type: String, required: false },
+  },
+  createdOn: { required: true, type: Date },
+  updatedOn: { required: true, type: Date, default: Date.now },
 });
 
 schema.methods.encryptPassword = (password: string) => hashSync(password, genSaltSync(10));
