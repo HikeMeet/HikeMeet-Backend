@@ -1,21 +1,39 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "esModuleInterop": true,
-    "target": "es6",
-    "noImplicitAny": true,
+    "lib": ["es6"],
+    "module": "esnext",
     "moduleResolution": "node",
-    "sourceMap": true,
-    "outDir": "dist",
+    "resolveJsonModule": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "strict": true,
+    "alwaysStrict": true,
+    "strictNullChecks": true,
+    "noUncheckedIndexedAccess": true,
+
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "noFallthroughCasesInSwitch": true,
+
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "jsx": "react-native",
+    "noEmit": true,
+    "isolatedModules": true,
+
     "baseUrl": ".",
     "paths": {
-      "*": [
-        "node_modules/*"
-      ]
-    },
-    "resolveJsonModule": true
+      "@/*": ["src/*"]
+    }
   },
-  "include": [
-    "src/**/*"
-  ]
+  "exclude": ["./node_modules/**/*", "e2e/**/*.ts"],
+  "extends": "expo/tsconfig.base"
 }
