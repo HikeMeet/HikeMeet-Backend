@@ -1,14 +1,16 @@
-import { RequestHandler } from 'express';
-import jwt from 'jsonwebtoken';
-import { relogRequestHandler } from '../../middleware/request-middleware';
-import { User } from '../../models/User';
+import { RequestHandler } from "express";
+import jwt from "jsonwebtoken";
+import { relogRequestHandler } from "../../middleware/request-middleware";
+import { User } from "../../models/User";
 
 const profileWrapper: RequestHandler = async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Authorization token missing or invalid" });
+      return res
+        .status(401)
+        .json({ message: "Authorization token missing or invalid" });
     }
 
     const token = authHeader.split(" ")[1];
@@ -32,4 +34,6 @@ const profileWrapper: RequestHandler = async (req, res) => {
   }
 };
 
-export const profile = relogRequestHandler(profileWrapper, { skipJwtAuth: false });
+export const profile = relogRequestHandler(profileWrapper, {
+  skipJwtAuth: false,
+});

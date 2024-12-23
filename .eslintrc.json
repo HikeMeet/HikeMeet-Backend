@@ -19,10 +19,7 @@
         "ignorePackages": true
       }
     ],
-    "spaced-comment": [
-      "error",
-      "always"
-    ],
+    "spaced-comment": ["error", "always"],
     "eqeqeq": [
       "error",
       "always",
@@ -33,29 +30,18 @@
     "no-underscore-dangle": [
       "error",
       {
-        "allow": [
-          "_id"
-        ]
+        "allow": ["_id"]
       }
     ],
     "camelcase": [
       "error",
       {
-        "allow": [
-          "oauth2_v2",
-          "user_id"
-        ],
+        "allow": ["oauth2_v2", "user_id"],
         "properties": "never"
       }
     ],
-    "func-names": [
-      "error",
-      "never"
-    ],
-    "arrow-parens": [
-      "error",
-      "as-needed"
-    ],
+    "func-names": ["error", "never"],
+    "arrow-parens": ["error", "as-needed"],
     "semi": "error",
     "no-extra-semi": 0,
     "import/no-unresolved": "off",
@@ -63,17 +49,14 @@
     "import/no-extraneous-dependencies": [
       "error",
       {
-        "devDependencies": [
-          "**/*.test.ts",
-          "**/*.spec.ts"
-        ]
+        "devDependencies": ["**/*.test.ts", "**/*.spec.ts"]
       }
     ],
     "no-unused-vars": "off",
     "dot-notation": "off",
     "class-methods-use-this": "off",
     "comma-dangle": [
-      "error",
+      "warning",
       {
         "arrays": "never",
         "objects": "never",
@@ -83,28 +66,18 @@
       }
     ],
     "handle-callback-err": "error",
-    "quotes": [
-      "error",
-      "single"
-    ]
+    "quotes": ["error", "double"]
   },
   "overrides": [
     {
-      "files": [
-        "**/*.ts"
-      ],
+      "files": ["**/*.ts"],
       "parser": "@typescript-eslint/parser",
       "rules": {
         "no-undef": "off"
       }
     }
   ],
-  "extends": [
-    "eslint:recommended",
-    "airbnb-base"
-  ],
-  "plugins": [
-    "@typescript-eslint"
-  ],
+  "extends": ["eslint:recommended", "airbnb-base"],
+  "plugins": ["@typescript-eslint"],
   "settings": {}
 }

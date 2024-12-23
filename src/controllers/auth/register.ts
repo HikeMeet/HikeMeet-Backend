@@ -1,7 +1,7 @@
-import { RequestHandler } from 'express';
-import Joi from '@hapi/joi';
-import { relogRequestHandler } from '../../middleware/request-middleware';
-import { User } from '../../models/User';
+import { RequestHandler } from "express";
+import Joi from "@hapi/joi";
+import { relogRequestHandler } from "../../middleware/request-middleware";
+import { User } from "../../models/User";
 
 // Validation schema for user registration
 export const addUserSchema = Joi.object().keys({
@@ -16,7 +16,7 @@ export const addUserSchema = Joi.object().keys({
   bio: Joi.string().optional(),
   facebookLink: Joi.string().uri().optional(),
   instagramLink: Joi.string().uri().optional(),
-  role: Joi.string().valid('user', 'admin').optional(),
+  role: Joi.string().valid("user", "admin").optional(),
 });
 
 const registerWrapper: RequestHandler = async (req, res) => {
