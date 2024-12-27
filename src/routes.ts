@@ -10,11 +10,13 @@ export const router = Router();
 // Auth routes
 router.post('/login', AuthController.login);
 router.post('/register', AuthController.register);
+router.post('/request-verification', AuthController.requestVerification);
+router.post('/verify-code', AuthController.verifyCode);
+router.post('/resend-code', AuthController.resendCode);
 
 // User routes
 router.get('/user/all', UserController.all);
 
-router.get('/user/profile', UserController.profile);
 
 if (process.env.NODE_ENV === 'development') {
   router.use('/dev/api-docs', swaggerUi.serve);
