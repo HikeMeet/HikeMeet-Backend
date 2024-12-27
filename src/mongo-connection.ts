@@ -1,5 +1,5 @@
-import mongoose, { ConnectionOptions } from 'mongoose';
-import { logger } from './logger';
+import mongoose, { ConnectionOptions } from "mongoose";
+import { logger } from "./logger";
 
 // To use global promise for mongoose
 (<any>mongoose).Promise = global.Promise;
@@ -34,7 +34,7 @@ export default class MongoConnection {
   private readonly mongoConnectionOptions: ConnectionOptions = {
     useNewUrlParser: true,
     useCreateIndex: true,
-    useUnifiedTopology: true
+    useUnifiedTopology: true,
   };
 
   /**
@@ -43,22 +43,22 @@ export default class MongoConnection {
    * @param onConnectedCallback callback to be called when mongo connection is successful
    */
   constructor(mongoUrl: string) {
-    if (process.env.NODE_ENV === 'development') {
-      mongoose.set('debug', true);
+    if (process.env.NODE_ENV === "development") {
+      mongoose.set("debug", true);
     }
 
     this.mongoUrl = mongoUrl;
-    mongoose.connection.on('error', this.onError);
-    mongoose.connection.on('disconnected', this.onDisconnected);
-    mongoose.connection.on('connected', this.onConnected);
-    mongoose.connection.on('reconnected', this.onReconnected);
+    mongoose.connection.on("error", this.onError);
+    mongoose.connection.on("disconnected", this.onDisconnected);
+    mongoose.connection.on("connected", this.onConnected);
+    mongoose.connection.on("reconnected", this.onReconnected);
   }
 
   /** Close mongo connection */
   public close(onClosed: (err: any) => void) {
     logger.log({
-      level: 'info',
-      message: 'Closing the MongoDB connection'
+      level: "info",
+      message: "Closing the MongoDB connection",
     });
     // noinspection JSIgnoredPromiseFromCall
     mongoose.connection.close(onClosed);
@@ -72,19 +72,21 @@ export default class MongoConnection {
 
   private startConnection = () => {
     logger.log({
-      level: 'info',
-      message: `Connecting to MongoDB at ${this.mongoUrl}`
+      level: "info",
+      message: `Connecting to MongoDB at ${this.mongoUrl}`,
     });
-    mongoose.connect(this.mongoUrl, this.mongoConnectionOptions).catch(() => { });
-  }
+    mongoose
+      .connect(this.mongoUrl, this.mongoConnectionOptions)
+      .catch(() => {});
+  };
 
   /**
    * Handler called when mongo connection is established
    */
   private onConnected = () => {
     logger.log({
-      level: 'info',
-      message: `Connected to MongoDB at ${this.mongoUrl}`
+      level: "info",
+      message: `Connected to MongoDB at ${this.mongoUrl}`,
     });
     this.isConnectedBefore = true;
     this.onConnectedCallback();
@@ -93,8 +95,8 @@ export default class MongoConnection {
   /** Handler called when mongo gets re-connected to the database */
   private onReconnected = () => {
     logger.log({
-      level: 'info',
-      message: 'Reconnected to MongoDB'
+      level: "info",
+      message: "Reconnected to MongoDB",
     });
     this.onConnectedCallback();
   };
@@ -102,8 +104,8 @@ export default class MongoConnection {
   /** Handler called for mongo connection errors */
   private onError = () => {
     logger.log({
-      level: 'error',
-      message: `Could not connect to ${this.mongoUrl}`
+      level: "error",
+      message: `Could not connect to ${this.mongoUrl}`,
     });
   };
 
@@ -114,8 +116,8 @@ export default class MongoConnection {
         this.startConnection();
       }, 2000);
       logger.log({
-        level: 'info',
-        message: 'Retrying mongo connection'
+        level: "info",
+        message: "Retrying mongo connection",
       });
     }
   };
