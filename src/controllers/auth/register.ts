@@ -12,13 +12,12 @@ export const addUserSchema = Joi.object().keys({
 
 const registerWrapper: RequestHandler = async (req, res) => {
   const {
-    email, password, firstName, lastName
+    email, firstName, lastName
   } = req.body;
 
   const user = new User({
     email, firstName, lastName, createdOn: Date.now()
   });
-  user.password = user.encryptPassword(password);
 
   await user.save();
 

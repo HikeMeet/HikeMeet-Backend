@@ -4,28 +4,56 @@ import mongoose, { Document, Model, Schema, model } from 'mongoose';
 
 
 export interface IUser extends Document {
+  /** Username */
+  username: string;
   /** Email */
   email: string;
-  /** Password */
-  password: string;
-  /** Password */
-  firstName: string;
-  /** Password */
-  lastName: string;
+  /** First Name */
+  firstName?: string;
+  /** Last Name */
+  lastName?: string;
+  /** Gender */
+  gender?: string;
+  /** Birth Date */
+  birthDate?: Date;
+  /** Profile Picture */
+  profilePicture?: string;
+  /** Bio */
+  bio?: string;
+  /** Facebook Link */
+  facebookLink?: string;
+  /** Instagram Link */
+  instagramLink?: string;
+  /** Role */
+  role: "user" | "admin";
+  /** Social Data */
+  social?: {
+    postsSaved?: string[]; // ObjectIds as strings for saved posts
+    postsLiked?: string[]; // ObjectIds as strings for liked posts
+    totalLikes?: number;
+    totalShare?: number;
+    totalSaves?: number;
+  };
+  /** Friends Data */
+  friends?: {
+    status?: "active" | "pending" | "blocked"; // Status of friendship
+    _id?: string; // Friend's ObjectId as a string
+  };
   /** Created On */
   createdOn: Date;
-  /** Created On */
+  /** Updated On */
   updatedOn: Date;
+  /** Encrypt Password Method */
   encryptPassword: (password: string) => string;
+  /** Validate Password Method */
   validPassword: (password: string) => boolean;
 }
-//
+
 interface IUserModel extends Model<IUser> { }
 
 const schema = new Schema({
-  usernames: {type: String, required: true, unique: true },
+  username: {type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
   firstName: { type: String, required: false},
   lastName: { type: String, required: false},
   gender: { type: String, required: false},
