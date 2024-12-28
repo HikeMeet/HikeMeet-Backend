@@ -1,5 +1,3 @@
-import { hashSync, genSaltSync, compareSync } from 'bcrypt';
-
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 
 export interface IUser extends Document {
@@ -42,11 +40,6 @@ export interface IUser extends Document {
   createdOn: Date;
   /** Updated On */
   updatedOn: Date;
-  password: string;
-  /** Encrypt Password Method */
-  encryptPassword: (password: string) => string;
-  /** Validate Password Method */
-  validPassword: (password: string) => boolean;
 }
 
 type IUserModel = Model<IUser>;
@@ -100,9 +93,4 @@ const userSchema = new Schema({
   },
 });
 
-userSchema.methods.encryptPassword = (password: string) => hashSync(password, genSaltSync(10));
-
-userSchema.methods.validPassword = function (password: string) {
-  return compareSync(password, this.password);
-};
 export const User: IUserModel = model<IUser, IUserModel>('User', userSchema);

@@ -7,11 +7,11 @@ const router = express.Router();
 router.post('/insert', async (req: Request, res: Response) => {
   try {
     // Extract user data from the request body
-    const { username, email, firstName, lastName, gender, birthDate, profilePicture, bio, facebookLink, instagramLink, role, password } = req.body;
+    const { username, email, firstName, lastName, gender, birthDate, profilePicture, bio, facebookLink, instagramLink, role } = req.body;
 
     // Validate required fields
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Username, email, and password are required.' });
+    if (!username || !email) {
+      return res.status(400).json({ error: 'Username or email are required.' });
     }
 
     // Check if the user already exists
@@ -55,9 +55,6 @@ router.post('/insert', async (req: Request, res: Response) => {
       updatedOn: new Date(),
     });
 
-    // Encrypt and set the password
-    newUser.password = newUser.encryptPassword(password);
-
     // Save the user to the database
     await newUser.save();
 
@@ -87,7 +84,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /user/:id/edit - Edit a user by ID
+// POST /user/:id/update - Edit a user by ID
 router.post('/:id/update', async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
@@ -106,7 +103,7 @@ router.post('/:id/update', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /user/:id - Delete a user by ID
+// DELETE /user/:id/delete - Delete a user by ID
 router.delete('/:id/delete', async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
