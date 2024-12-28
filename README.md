@@ -1,63 +1,34 @@
-# Node-TypeScript-Express-MongoDB Boilerplate
-This repo can be used as a starting point for backend development with Nodejs, Express, TypeScript and MongoDB.
+<h1 align="center">Nodejs-Express Typescript Boilerplate</h1>
 
-A few things to note in the project:
-* **TypeScript** - It uses TypeScript.
-* **JWT** - It uses JWT Token for Authentication.
-* **Mongo Connection Helper** - A helper class to connect to MongoDB reliably.
-* **Joi** - For declarative payload validation
-* **Middleware for easier async/await** - Catches errors from routes and throws them to express error handler to prevent app crash due to uncaught errors.
-* **.env file for configuration** - Change server config like app port, mongo url etc
-* **Winston Logger** - Uses winston as the logger for the application.
-* **ESLINT** - ESLINT is configured for linting.
-* **Jest** - Using Jest for running test cases
-* **Swagger** - Open API Specification
+<p align="center">
+  <b>Build your web servers without spending hours on setting up the project.</b></br>
+  <sub>Made with ❤️ by <a href="https://github.com/abhijeetgurle">Abhijeet</a></sub>
+</p>
 
-## Installation
+<br>
 
-### Manual Method
+## Why I Have Created This?
 
-#### 1. Clone this repo
+There are many boilerplates available on the internet which providers a server app with nodejs, express & typescript but I found them either too complex for my use case or too simple where I need to configure lot of features later. So I build this repo to be used in projects which are simple & doesn't require lot of unnecessary tooling.
 
-```
-$ git clone https://github.com/kvvignesh/Node-TypeScript-Express-MongoDB.git your-app-name
-$ cd your-app-name
-```
+<br>
 
-#### 2. Install dependencies
+## Features
 
-```
-$ npm i
-```
+- **Simple Code** with no unnecessary dependencies.
+- **JSON & Cookie** parsing support with no need of configurations.
+- **Environment variables** can be easily added in file `.env` using library like [dotenv](https://www.npmjs.com/package/dotenv).
+- **Logging** support using libraries like [winston](https://www.npmjs.com/package/winston) & [morgan](https://www.npmjs.com/package/morgan)
+- **Prettier & ESlint** added so that your code looks & feels consistent.
 
-## Development
+<br>
 
-### Start dev server
-```
-$ npm run dev
-```
-Running the above commands results in 
-* 🌏**API Server** running at `http://localhost:3000`
-* 🛢️**MongoDB** running at `mongodb://localhost:27017`
+## How To Use It
 
+Download the zip file of this codebase & start writing your APIs 🎉.
 
-## Environment
-To edit environment variables, create a file with name `.env` and copy the contents from `.env.sample` to start with.
-
-| Var Name  | Type  | Default | Description  |
-|---|---|---|---|
-| NODE_ENV  | string  | `development` |API runtime environment. eg: `production`  |
-|  PORT | number  | `3000` | Port to run the API server on |
-|  MONGO_URL | string  | `mongodb://localhost:27017/library` | URL for MongoDB |
-|  SECRET | string  | `iAmSuperBoy` | JWT Token's Secret Key |
-
-## Logging
-The application uses [winston](https://github.com/winstonjs/winston) as the default logger. The configuration file is at `src/logger.ts`.
-* All logs are saved in `./logs` directory.
-* Console messages are prettified
-* Each line in error log file is a stringified JSON.
-
+<br>
 
 ## License
-Copyright (c) kvvignesh. All rights reserved.
-Licensed under the [MIT](LICENSE) License.
+
+[MIT](/LICENSE)
