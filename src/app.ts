@@ -14,18 +14,28 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 
 const app: express.Application = express();
-
+const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
 const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/mydatabase';
 mongoose
   .connect(mongoURI)
   .then(() => {
     console.info(`Connected to MongoDB`);
 
+    app.use(
+      cors({
+        origin: (origin, callback) => {
+          if (!origin || !allowedOrigins.includes(origin)) {
+            callback(null, true);
+          } else {
+            callback(new Error('not allowed by CORS' + origin));
+          }
+        },
+      }),
+    );
     app.use(httpLogger);
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
-    app.use(cors());
     app.use('/api/', healthRouter);
     app.use('/api/user', registerRouter);
 
