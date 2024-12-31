@@ -1,45 +1,31 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 
 export interface IUser extends Document {
-  /** Username */
   username: string;
-  /** Email */
   email: string;
-  /** First Name */
-  firstName?: string;
-  /** Last Name */
-  lastName?: string;
-  /** Gender */
+  first_name?: string;
+  last_name?: string;
   gender?: string;
-  /** Birth Date */
-  birthDate?: Date;
-  /** Profile Picture */
-  profilePicture?: string;
-  /** Bio */
+  birth_date?: Date;
+  profile_picture?: string;
   bio?: string;
-  /** Facebook Link */
-  facebookLink?: string;
-  /** Instagram Link */
-  instagramLink?: string;
-  /** Role */
+  facebook_link?: string;
+  instagram_link?: string;
   role: 'user' | 'admin';
-  /** Social Data */
   social?: {
-    postsSaved?: string[]; // ObjectIds as strings for saved posts
-    postsLiked?: string[]; // ObjectIds as strings for liked posts
-    totalLikes?: number;
-    totalShare?: number;
-    totalSaves?: number;
+    posts_saved?: string[];
+    posts_liked?: string[];
+    total_likes?: number;
+    total_shares?: number;
+    total_saves?: number;
   };
-  /** Friends Data */
   friends?: {
-    status?: 'active' | 'pending' | 'blocked'; // Status of friendship
-    _id?: string; // Friend's ObjectId as a string
-  };
-  /** Created On */
-  createdOn: Date;
-  /** Updated On */
-  updatedOn: Date;
+    status?: 'active' | 'pending' | 'blocked';
+    id?: string;
+  }[];
+  firebase_id: string;
+  created_on: Date;
+  updated_on: Date;
 }
 
 type IUserModel = Model<IUser>;
@@ -47,50 +33,38 @@ type IUserModel = Model<IUser>;
 const userSchema = new Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  firstName: { type: String, required: false },
-  lastName: { type: String, required: false },
-  gender: { type: String, required: false },
-  birthDate: { type: Date, required: false },
-  profilePicture: { type: String, required: false },
-  bio: { type: String, required: false },
-  facebookLink: { type: String, required: false },
-  instagramLink: { type: String, required: false },
-  //Notification: { type: String, required: false},  //can be json
-  role: { type: String, required: true, enum: ['user', 'admin'], default: 'user' }, //user, admin
-
-  //location: { type: String, required: false},  //json object with all location info
+  first_name: { type: String },
+  last_name: { type: String },
+  gender: { type: String },
+  birth_date: { type: Date },
+  profile_picture: { type: String },
+  bio: { type: String },
+  facebook_link: { type: String },
+  instagram_link: { type: String },
+  role: { type: String, required: true, enum: ['user', 'admin'], default: 'user' },
   social: {
-    postsSaved: { type: [mongoose.Schema.Types.ObjectId], required: false }, //post that I saved
-    postsLiked: { type: [mongoose.Schema.Types.ObjectId], required: false }, //_id of post I like
-    totalLikes: { type: Number, required: false },
-    totalShare: { type: Number, required: false },
-    totalSaves: { type: Number, required: false },
+    posts_saved: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+    posts_liked: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+    total_likes: { type: Number },
+    total_shares: { type: Number },
+    total_saves: { type: Number },
   },
-
   friends: [
     {
       status: {
         type: String,
-        required: false,
         enum: ['active', 'pending', 'blocked'],
         default: 'pending',
       },
-      _id: {
+      id: {
         type: mongoose.Schema.Types.ObjectId,
-        required: false,
+        ref: 'User',
       },
     },
   ],
-
-  createdOn: {
-    required: true,
-    type: Date,
-  },
-  updatedOn: {
-    required: true,
-    type: Date,
-    default: Date.now,
-  },
+  firebase_id: { type: String },
+  created_on: { type: Date, required: true, default: Date.now },
+  updated_on: { type: Date, required: true, default: Date.now },
 });
 
 export const User: IUserModel = model<IUser, IUserModel>('User', userSchema);

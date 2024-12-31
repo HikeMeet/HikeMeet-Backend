@@ -6,12 +6,21 @@ const router = express.Router();
 // POST /insert route
 router.post('/insert', async (req: Request, res: Response) => {
   try {
+    console.log('inserting');
     // Extract user data from the request body
-    const { username, email, firstName, lastName, gender, birthDate, profilePicture, bio, facebookLink, instagramLink, role } = req.body;
+    const { username, email, first_name, last_name, gender, birth_date, profile_picture, bio, facebook_link, instagram_link, role, firebase_id } =
+      req.body;
 
     // Validate required fields
-    if (!username || !email) {
-      return res.status(400).json({ error: 'Username or email are required.' });
+    const requiredFields = ['username', 'email', 'first_name', 'last_name', 'firebase_id'];
+    const missingFields = requiredFields.filter((field) => !req.body[field]);
+
+    if (missingFields.length > 0) {
+      const missingFieldsList = missingFields.join(', ');
+      return res.status(400).json({
+        error: `Missing required fields: ${missingFieldsList}`,
+        missing_fields: missingFields,
+      });
     }
 
     // Check if the user already exists
@@ -42,24 +51,25 @@ router.post('/insert', async (req: Request, res: Response) => {
     const newUser = new User({
       username,
       email,
-      firstName,
-      lastName,
+      first_name,
+      last_name,
       gender,
-      birthDate,
-      profilePicture,
+      birth_date,
+      profile_picture,
       bio,
-      facebookLink,
-      instagramLink,
+      facebook_link,
+      instagram_link,
       role: role || 'user', // Default to 'user'
-      createdOn: new Date(),
-      updatedOn: new Date(),
+      firebase_id,
+      created_on: new Date(),
+      updated_on: new Date(),
     });
 
     // Save the user to the database
     await newUser.save();
 
     // Send a success response
-    res.status(201).json({ message: 'User registered successfully', user: newUser });
+    res.status(200).json({ message: 'User registered successfully', user: newUser });
   } catch (error) {
     console.error('Error inserting user:', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -89,7 +99,7 @@ router.post('/:id/update', async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
     const updates = req.body; // Updates from the request body
-
+    updates.updated_on = new Date();
     // Find the user and update
     const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true });
     if (!updatedUser) {
