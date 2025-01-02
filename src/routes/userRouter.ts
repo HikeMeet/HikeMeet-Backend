@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -74,6 +75,12 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
 
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+        
     // Find the user by ID
     const user = await User.findById(userId);
     if (!user) {

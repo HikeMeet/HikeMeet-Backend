@@ -11,6 +11,7 @@ import httpLogger from './middlewares/httpLogger';
 import registerRouter from './routes/userRouter';
 import healthRouter from './routes/index';
 import mongoose from 'mongoose';
+import postRoutes from './routes/post';
 
 const app: express.Application = express();
 
@@ -27,6 +28,8 @@ mongoose
 
     app.use('/api/', healthRouter);
     app.use('/api/user', registerRouter);
+    app.use('/api/posts', postRoutes);
+
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
