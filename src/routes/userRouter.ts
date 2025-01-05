@@ -60,6 +60,11 @@ router.post('/insert', async (req: Request, res: Response) => {
       instagram_link: instagram_link || '',
       role: role || 'user', // Default to 'user'
       firebase_id,
+      social: {
+        total_likes: 0,
+        total_shares: 0,
+        total_saves: 0,
+      },
       created_on: new Date(),
       updated_on: new Date(),
     });
