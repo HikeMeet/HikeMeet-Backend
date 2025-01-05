@@ -14,7 +14,7 @@ import mongoose from 'mongoose';
 
 const app: express.Application = express();
 
-const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/mydatabase';
+const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/Hikemeet';
 mongoose
   .connect(mongoURI)
   .then(() => {
