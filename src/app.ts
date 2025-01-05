@@ -15,8 +15,6 @@ import cors from 'cors';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
-const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/mydatabase';
-=======
 
 const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/Hikemeet';
 mongoose
