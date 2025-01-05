@@ -21,7 +21,6 @@ router.post('/insert', async (req: Request, res: Response) => {
         error: `Missing required fields: ${missingFieldsList}`,
         missing_fields: missingFields,
       });
-
     }
     // Check if the user already exists
     const existingUser = await User.findOne({
