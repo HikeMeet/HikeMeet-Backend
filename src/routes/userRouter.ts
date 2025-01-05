@@ -6,11 +6,22 @@ const router = express.Router();
 // POST /insert route
 router.post('/insert', async (req: Request, res: Response) => {
   try {
+    console.log('inserting');
     // Extract user data from the request body
-    const { username, email, firstName, lastName, gender, birthDate, profilePicture, bio, facebookLink, instagramLink, role} = req.body; //removed password 
+    const { username, email, first_name, last_name, gender, birth_date, profile_picture, bio, facebook_link, instagram_link, role, firebase_id } =
+      req.body;
+
     // Validate required fields
-    if (!username || !email) {//removed password
-      return res.status(400).json({ error: 'Username, email.' });
+    const requiredFields = ['username', 'email', 'first_name', 'last_name', 'firebase_id'];
+    const missingFields = requiredFields.filter((field) => !req.body[field]);
+
+    if (missingFields.length > 0) {
+      const missingFieldsList = missingFields.join(', ');
+      return res.status(400).json({
+        error: `Missing required fields: ${missingFieldsList}`,
+        missing_fields: missingFields,
+      });
+
     }
     // Check if the user already exists
     const existingUser = await User.findOne({
@@ -40,24 +51,25 @@ router.post('/insert', async (req: Request, res: Response) => {
     const newUser = new User({
       username,
       email,
-      firstName,
-      lastName,
-      gender,
-      birthDate,
-      profilePicture,
-      bio,
-      facebookLink,
-      instagramLink,
+      first_name,
+      last_name,
+      gender: gender || '',
+      birth_date: birth_date || '',
+      profile_picture: profile_picture || '',
+      bio: bio || '',
+      facebook_link: facebook_link || '',
+      instagram_link: instagram_link || '',
       role: role || 'user', // Default to 'user'
-      createdOn: new Date(),
-      updatedOn: new Date(),
+      firebase_id,
+      created_on: new Date(),
+      updated_on: new Date(),
     });
-//removed "newUser.password = newUser.encryptPassword(password);"
+
     // Save the user to the database
     await newUser.save();
 
     // Send a success response
-    res.status(201).json({ message: 'User registered successfully', user: newUser });
+    res.status(200).json({ message: 'User registered successfully', user: newUser });
   } catch (error) {
     console.error('Error inserting user:', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -82,12 +94,12 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /user/:id/edit - Edit a user by ID
+// POST /user/:id/update - Edit a user by ID
 router.post('/:id/update', async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
     const updates = req.body; // Updates from the request body
-
+    updates.updated_on = new Date();
     // Find the user and update
     const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true });
     if (!updatedUser) {
@@ -101,7 +113,7 @@ router.post('/:id/update', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /user/:id - Delete a user by ID
+// DELETE /user/:id/delete - Delete a user by ID
 router.delete('/:id/delete', async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
