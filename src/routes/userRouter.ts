@@ -81,12 +81,21 @@ router.post('/insert', async (req: Request, res: Response) => {
 });
 
 // GET /user/:id - Get a user by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:mongoId', async (req: Request, res: Response) => {
   try {
-    const userId = req.params.id;
+    const { mongoId } = req.params;
+    const firebase = req.query.firebase === 'true'; // Default is false if not provided
+    console.log(mongoId, ' xxxx ', firebase);
+    let user;
 
-    // Find the user by ID
-    const user = await User.findById(userId);
+    if (firebase) {
+      // Search for the user by Firebase UID
+      user = await User.findOne({ firebase_id: mongoId }); // Assuming 'firebaseUid' is the field in your schema
+    } else {
+      // Search for the user by MongoDB ID
+      user = await User.findById(mongoId);
+    }
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
