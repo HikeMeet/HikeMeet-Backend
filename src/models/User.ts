@@ -28,8 +28,8 @@ export interface IUser extends Document {
   updated_on: Date;
   resetPasswordToken: string | null;
   resetPasswordExpires: Date | null;
-  verificationCode: { type: String, default: null }, // קוד אימות
-  verificationCodeExpires: { type: Date, default: null }, // תאריך תפוגה של הקוד
+  verificationCode: string | null; // Added field for verification code
+  verificationCodeExpires: Date | null; // Added field for verification code expiration
 }
 
 type IUserModel = Model<IUser>;
@@ -69,8 +69,8 @@ const userSchema = new Schema({
   firebase_id: { type: String },
   created_on: { type: Date, required: true, default: Date.now },
   updated_on: { type: Date, required: true, default: Date.now },
-  verificationCode: { type: String, default: null }, // קוד אימות
-  verificationCodeExpires: { type: Date, default: null }, // תאריך תפוגה של הקוד
+  resetPasswordToken: { type: String, default: null }, //adddddddddd
+  resetPasswordExpires: { type: Date, default: null }, //addddddddd
 
 
 });
