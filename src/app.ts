@@ -11,10 +11,8 @@ import httpLogger from './middlewares/httpLogger';
 import registerRouter from './routes/userRouter';
 import healthRouter from './routes/index';
 import mongoose from 'mongoose';
-import cors from 'cors';
 
 const app: express.Application = express();
-const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
 
 const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/Hikemeet';
 mongoose
@@ -22,21 +20,11 @@ mongoose
   .then(() => {
     console.info(`Connected to MongoDB`);
 
-    app.use(
-      cors({
-        origin: (origin, callback) => {
-          if (!origin || !allowedOrigins.includes(origin)) {
-            callback(null, true);
-          } else {
-            callback(new Error('not allowed by CORS' + origin));
-          }
-        },
-      }),
-    );
     app.use(httpLogger);
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
+
     app.use('/api/', healthRouter);
     app.use('/api/user', registerRouter);
 
@@ -80,9 +68,7 @@ mongoose
       console.info(`Server is listening on ${bind}`);
     }
 
-    app.listen(3000, '0.0.0.0', () => {
-      console.log('Server is running on http://0.0.0.0:3000');
-    });
+    server.listen(port);
     server.on('error', onError);
     server.on('listening', onListening);
   })

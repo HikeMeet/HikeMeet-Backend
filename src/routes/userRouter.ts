@@ -1,10 +1,48 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
+const nodemailer = require("nodemailer");
+const admin = require("firebase-admin");
+const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+if (!privateKey) {
+  throw new Error("FIREBASE_PRIVATE_KEY is not defined in environment variables");
+}
+
+const serviceAccount = {
+  type: process.env.FIREBASE_TYPE || "service_account",
+  project_id: process.env.FIREBASE_PROJECT_ID || "",
+  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "",
+  private_key: privateKey.replace(/\\n/g, '\n'),
+  client_email: process.env.FIREBASE_CLIENT_EMAIL || "",
+  client_id: process.env.FIREBASE_CLIENT_ID || "",
+  auth_uri: process.env.FIREBASE_AUTH_URI || "",
+  token_uri: process.env.FIREBASE_TOKEN_URI || "",
+  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL || "",
+  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL || "",
+};
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+// מגדיר את נודמיילר
+const transporter = nodemailer.createTransport({
+  service: "Gmail", // או השירות שבו אתה משתמש
+  auth: {
+    user: 'royinagar2@gmail.com',
+    pass: 'pryk uqde apyp kuwl'
+  },
+});
+
+
+
 
 const router = express.Router();
 
+
 // POST /insert route
 router.post('/insert', async (req: Request, res: Response) => {
+  console.log("aaaaaaaaaaaaaaaaaaaa");
   try {
     console.log('inserting');
     // Extract user data from the request body
@@ -125,6 +163,102 @@ router.post('/:id/update', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+
+////////////////////////////////////////////////////////////////////////////////////
+router.post('/send-verification-code', async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // יצירת קוד רנדומלי בן 5 ספרות
+    const verificationCode = Math.floor(10000 + Math.random() * 90000).toString();
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 דקות
+
+    user.verificationCode = verificationCode;
+    user.verificationCodeExpires = expires;
+    await user.save();
+
+    console.log("Generated verification code:", verificationCode);
+    console.log("Expires at:", expires);
+
+    // שליחת הקוד למייל
+    const mailOptions = {
+      from: "your-email@gmail.com",
+      to: email,
+      subject: "Your Verification Code",
+      html: `
+        <p>Your verification code is:</p>
+        <h3>${verificationCode}</h3>
+        <p>This code will expire in 10 minutes.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "Verification code sent successfully" });
+  } catch (error) {
+    console.error("Error sending verification code:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+router.post('/verify-code', async (req: Request, res: Response) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    console.error("Missing email or code:", { email, code });
+    return res.status(400).json({ error: "Email and code are required" });
+  }
+
+  try {
+    console.log("Verifying code for email:", email);
+    console.log("Received code:", code);
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      console.error("User not found for email:", email);
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    console.log("Stored code:", user.verificationCode);
+    console.log("Code expiration:", user.verificationCodeExpires);
+
+    if (
+      user.verificationCode !== code ||
+      !user.verificationCodeExpires ||
+      user.verificationCodeExpires <= new Date()
+    ) {
+      console.error("Invalid or expired verification code for email:", email);
+      return res.status(400).json({ error: "Invalid or expired verification code" });
+    }
+
+    // ניקוי הקוד לאחר האימות
+    user.verificationCode = null;
+    user.verificationCodeExpires = null;
+    await user.save();
+
+    console.log("Verification successful for email:", email);
+    res.status(200).json({ message: "Verification successful" });
+  } catch (error) {
+    console.error("Error verifying code for email:", email, error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+////////////////////////////////////////////////////////////////////////////////////
 
 // DELETE /user/:id/delete - Delete a user by ID
 router.delete('/:id/delete', async (req: Request, res: Response) => {
