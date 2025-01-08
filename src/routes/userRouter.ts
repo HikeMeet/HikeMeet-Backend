@@ -239,7 +239,7 @@ router.post('/send-verification-code', async (req: Request, res: Response) => {
 
     
     const mailOptions = {
-      from: "HikeMeet@gmail.com",
+      from: '"HikeMeet Team" <HikeMeet@gmail.com>', // שם מותאם אישית ושם האימייל
       to: email,
       subject: "Your Verification Code",
       html: `
@@ -248,6 +248,7 @@ router.post('/send-verification-code', async (req: Request, res: Response) => {
         <p>This code will expire in 10 minutes.</p>
       `,
     };
+    
 
     await transporter.sendMail(mailOptions);
 
