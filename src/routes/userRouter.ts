@@ -1,40 +1,9 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
 import nodemailer from 'nodemailer'; 
-import admin from 'firebase-admin';
 import jwt from 'jsonwebtoken'; // add: for creating JWT                    / i DONT THINK ITS USED in JWT
-import dotenv from 'dotenv';
 
-dotenv.config(); // Load environment variables
-
-
-//all what I add
-//////////////////////////////////////////////////////
-// Validate FIREBASE_PRIVATE_KEY
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-if (!privateKey) {
-  throw new Error("FIREBASE_PRIVATE_KEY is not defined in environment variables");
-}
-
-
-// Define the service account object with type assertion
-const serviceAccount = {
-  type: process.env.FIREBASE_TYPE || "service_account",
-  project_id: process.env.FIREBASE_PROJECT_ID || "",
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "",
-  private_key: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, '\n'),
-  client_email: process.env.FIREBASE_CLIENT_EMAIL || "",
-  client_id: process.env.FIREBASE_CLIENT_ID || "",
-  auth_uri: process.env.FIREBASE_AUTH_URI || "",
-  token_uri: process.env.FIREBASE_TOKEN_URI || "",
-  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL || "",
-  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL || "",
-};
-
-// Initialize Firebase Admin SDK
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
-});
+import admin from "firebase-admin";
 
 
 // nodemailer transport
@@ -314,5 +283,43 @@ router.post('/verify-code', async (req: Request, res: Response) => {
   }
 });
 //////////////////////////////////////////////////////////////////////////
+//firebase.admin
 
+// מסלול לעדכון סיסמא
+router.post("/update-password", async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return res.status(400).send({ error: "Email and new password are required." });
+  }
+
+  try {
+    // מצא את המשתמש לפי המייל
+    const user = await admin.auth().getUserByEmail(email);
+
+    if (!user) {
+      return res.status(404).send({ error: "User not found." });
+    }
+
+    // עדכן את הסיסמה
+    await admin.auth().updateUser(user.uid, { password: newPassword });
+
+    return res.status(200).send({ message: "Password updated successfully." });
+  } catch (error) {
+    console.error("Error updating password:", error.message);
+    return res.status(500).send({ error: error.message || "Internal Server Error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////
 export default router;
