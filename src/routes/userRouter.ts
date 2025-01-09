@@ -1,34 +1,32 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
-import nodemailer from 'nodemailer'; 
+import nodemailer from 'nodemailer';
 import admin from 'firebase-admin';
 import jwt from 'jsonwebtoken'; // add: for creating JWT                    / i DONT THINK ITS USED in JWT
 import dotenv from 'dotenv';
 
 dotenv.config(); // Load environment variables
 
-
 //all what I add
 //////////////////////////////////////////////////////
 // Validate FIREBASE_PRIVATE_KEY
 const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 if (!privateKey) {
-  throw new Error("FIREBASE_PRIVATE_KEY is not defined in environment variables");
+  throw new Error('FIREBASE_PRIVATE_KEY is not defined in environment variables');
 }
-
 
 // Define the service account object with type assertion
 const serviceAccount = {
-  type: process.env.FIREBASE_TYPE || "service_account",
-  project_id: process.env.FIREBASE_PROJECT_ID || "",
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "",
-  private_key: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, '\n'),
-  client_email: process.env.FIREBASE_CLIENT_EMAIL || "",
-  client_id: process.env.FIREBASE_CLIENT_ID || "",
-  auth_uri: process.env.FIREBASE_AUTH_URI || "",
-  token_uri: process.env.FIREBASE_TOKEN_URI || "",
-  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL || "",
-  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL || "",
+  type: process.env.FIREBASE_TYPE || 'service_account',
+  project_id: process.env.FIREBASE_PROJECT_ID || '',
+  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || '',
+  private_key: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  client_email: process.env.FIREBASE_CLIENT_EMAIL || '',
+  client_id: process.env.FIREBASE_CLIENT_ID || '',
+  auth_uri: process.env.FIREBASE_AUTH_URI || '',
+  token_uri: process.env.FIREBASE_TOKEN_URI || '',
+  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL || '',
+  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL || '',
 };
 
 // Initialize Firebase Admin SDK
@@ -36,10 +34,9 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
 });
 
-
 // nodemailer transport
 const transporter = nodemailer.createTransport({
-  service: "Gmail", // או השירות שבו אתה משתמש
+  service: 'Gmail', // או השירות שבו אתה משתמש
   auth: {
     user: 'royinagar2@gmail.com',
     pass: 'pryk uqde apyp kuwl',
@@ -47,12 +44,6 @@ const transporter = nodemailer.createTransport({
 });
 //////////////////////////////////////////////////////
 //all what I add
-
-
-
-
-
-
 
 const router = express.Router();
 
@@ -67,22 +58,13 @@ const verificationCodesMap: {
   };
 } = {};
 
-
-
-
-
-
-
-
-
-
-
 // POST /insert route
 router.post('/insert', async (req: Request, res: Response) => {
   try {
     console.log('inserting');
     // Extract user data from the request body
-    const { username, email, first_name, last_name, gender, birth_date, profile_picture, bio, facebook_link, instagram_link, role, firebase_id } = req.body;
+    const { username, email, first_name, last_name, gender, birth_date, profile_picture, bio, facebook_link, instagram_link, role, firebase_id } =
+      req.body;
 
     // Validate required fields
     const requiredFields = ['username', 'email', 'first_name', 'last_name', 'firebase_id'];
@@ -201,9 +183,6 @@ router.post('/:id/update', async (req: Request, res: Response) => {
   }
 });
 
-
-
-
 //all what I add
 
 //////////////////////////////////////////////////////////////////////////
@@ -212,18 +191,18 @@ router.post('/send-verification-code', async (req: Request, res: Response) => {
   const { email } = req.body;
 
   if (!email) {
-    return res.status(400).json({ error: "Email is required" });
+    return res.status(400).json({ error: 'Email is required' });
   }
 
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const now = new Date();
     if (verificationCodesMap[email] && verificationCodesMap[email].expires > now) {
-      return res.status(400).json({ error: "Please wait 1 minutes before requesting another code." });
+      return res.status(400).json({ error: 'Please wait 1 minutes before requesting another code.' });
     }
 
     const verificationCode = Math.floor(10000 + Math.random() * 90000).toString();
@@ -234,14 +213,13 @@ router.post('/send-verification-code', async (req: Request, res: Response) => {
       expires,
     };
 
-    console.log("Generated verification code:", verificationCode);
-    console.log("Expires at:", expires);
+    console.log('Generated verification code:', verificationCode);
+    console.log('Expires at:', expires);
 
-    
     const mailOptions = {
-      from: "HikeMeet@gmail.com",
+      from: 'HikeMeet@gmail.com',
       to: email,
-      subject: "Your Verification Code",
+      subject: 'Your Verification Code',
       html: `
         <p>Your verification code is:</p>
         <h3>${verificationCode}</h3>
@@ -251,10 +229,10 @@ router.post('/send-verification-code', async (req: Request, res: Response) => {
 
     await transporter.sendMail(mailOptions);
 
-    return res.status(200).json({ message: "Verification code sent successfully" });
+    return res.status(200).json({ message: 'Verification code sent successfully' });
   } catch (error) {
-    console.error("Error sending verification code:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.error('Error sending verification code:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
@@ -263,53 +241,53 @@ router.post('/verify-code', async (req: Request, res: Response) => {
   const { email, code } = req.body;
 
   if (!email || !code) {
-    console.error("Missing email or code:", { email, code });
-    return res.status(400).json({ error: "Email and code are required" });
+    console.error('Missing email or code:', { email, code });
+    return res.status(400).json({ error: 'Email and code are required' });
   }
 
   try {
-    console.log("Verifying code for email:", email);
-    console.log("Received code:", code);
+    console.log('Verifying code for email:', email);
+    console.log('Received code:', code);
 
     const user = await User.findOne({ email });
     if (!user) {
-      console.error("User not found for email:", email);
-      return res.status(404).json({ error: "User not found" });
+      console.error('User not found for email:', email);
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // שולפים מהמפה (in-memory) את הקוד השמור
     const storedData = verificationCodesMap[email];
 
     if (!storedData) {
-      console.error("No verification code stored for email:", email);
-      return res.status(400).json({ error: "No verification code found or code expired" });
+      console.error('No verification code stored for email:', email);
+      return res.status(400).json({ error: 'No verification code found or code expired' });
     }
 
     // בודקים אם הקוד תואם או פג תוקף
-    const isCodeValid = (storedData.code === code) && (storedData.expires > new Date());
+    const isCodeValid = storedData.code === code && storedData.expires > new Date();
     if (!isCodeValid) {
-      console.error("Invalid or expired verification code for email:", email);
-      return res.status(400).json({ error: "Invalid or expired verification code" });
+      console.error('Invalid or expired verification code for email:', email);
+      return res.status(400).json({ error: 'Invalid or expired verification code' });
     }
 
     // הסרה מהמפה - שלא יהיה ניתן להשתמש שוב
     delete verificationCodesMap[email];
-    console.log("Verification successful for email:", email);
+    console.log('Verification successful for email:', email);
 
     // אופציונלי: הפקת JWT כדי "להוכיח" שהמשתמש אומת
     // (התוקף כאן למשל 1 שעה, לשיקולך)
-    const secretKey = process.env.JWT_SECRET || "fallback-secret";
+    const secretKey = process.env.JWT_SECRET || 'fallback-secret';
     const token = jwt.sign({ email: user.email, uid: user._id }, secretKey, {
-      expiresIn: "1h",
+      expiresIn: '1h',
     });
 
     return res.status(200).json({
-      message: "Verification successful",
+      message: 'Verification successful',
       token,
     });
   } catch (error) {
-    console.error("Error verifying code for email:", email, error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.error('Error verifying code for email:', email, error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 //////////////////////////////////////////////////////////////////////////
