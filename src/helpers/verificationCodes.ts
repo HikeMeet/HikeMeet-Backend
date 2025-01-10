@@ -7,7 +7,7 @@ interface VerificationCodeData {
   
   export const generateVerificationCode = (email: string): VerificationCodeData => {
     const code = Math.floor(10000 + Math.random() * 90000).toString();
-    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expires = new Date(Date.now() + 1 * 60 * 1000); // 10 דקות
     verificationCodesMap[email] = { code, expires };
     return { code, expires };
   };

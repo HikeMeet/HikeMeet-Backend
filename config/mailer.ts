@@ -1,10 +1,10 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransport({   //"user" and "pass" need move to ENV file
   service: "Gmail",
   auth: {
-    user: process.env.MAILER_USER || "",
-    pass: process.env.MAILER_PASS || "",
+    user: "royinagar2@gmail.com",
+    pass: "pryk uqde apyp kuwl",
   },
 });
 
