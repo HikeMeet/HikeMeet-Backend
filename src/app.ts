@@ -4,14 +4,19 @@ import path from 'path';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import http from 'http';
+import cors from 'cors';
+import mongoose from 'mongoose';
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
+
 import { handleError } from './helpers/error';
 import httpLogger from './middlewares/httpLogger';
 import registerRouter from './routes/userRouter';
 import healthRouter from './routes/index';
-import mongoose from 'mongoose';
-import cors from 'cors';
+import authRoutes from './routes/authRoutes';
+import '../config/firebaseAdmin';
+
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
@@ -37,8 +42,11 @@ mongoose
     app.use(express.json());
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
+
+    // Routes
     app.use('/api/', healthRouter);
     app.use('/api/user', registerRouter);
+    app.use('/api/auth', authRoutes);
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
@@ -51,7 +59,8 @@ mongoose
     };
     app.use(errorHandler);
 
-    const port = process.env.PORT || '8000';
+    // Server Setup
+    const port = parseInt(process.env.PORT || '3000', 10);
     app.set('port', port);
 
     const server = http.createServer(app);
@@ -80,7 +89,7 @@ mongoose
       console.info(`Server is listening on ${bind}`);
     }
 
-    app.listen(parseInt(port), '0.0.0.0', () => {
+    app.listen(port, '0.0.0.0', () => {
       console.log('Server is running on http://0.0.0.0:3000');
     });
     server.on('error', onError);
