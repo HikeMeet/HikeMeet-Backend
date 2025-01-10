@@ -127,5 +127,22 @@ router.post('/:id/update', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+// DELETE /:id/delete - Delete a user by ID
+router.delete('/:id/delete', async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+
+    // Find the user by ID and delete
+    const deletedUser = await User.findByIdAndDelete(userId);
+    if (!deletedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 
 export default router;
