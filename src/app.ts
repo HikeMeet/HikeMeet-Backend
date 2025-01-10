@@ -64,7 +64,7 @@ mongoose
     app.use(errorHandler);
 
     // Server Setup
-    const port = process.env.PORT || "8000";
+    const port = parseInt(process.env.PORT || "3000", 10)
     app.set("port", port);
 
     const server = http.createServer(app);
@@ -93,8 +93,8 @@ mongoose
       console.info(`Server is listening on ${bind}`);
     }
 
-    app.listen(5000, '0.0.0.0', () => {
-      console.log('Server is running on http://0.0.0.0:5000');
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server is running on http://0.0.0.0:${port}`);
     });
     server.on('error', onError);
     server.on('listening', onListening);
