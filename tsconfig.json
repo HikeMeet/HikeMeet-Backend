@@ -22,7 +22,8 @@
     "experimentalDecorators": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
+    "rootDir": "./src" // Folder containing source files
   },
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "dist"], // Exclude folders not to compile
   "include": ["./src/**/*.ts"]
 }

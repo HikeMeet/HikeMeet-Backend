@@ -84,6 +84,7 @@ router.post('/insert', async (req: Request, res: Response) => {
 // GET /:mongoId - Get a user by ID or Firebase ID
 router.get('/:mongoId', async (req: Request, res: Response) => {
   try {
+    console.log('Get user');
     const { mongoId } = req.params;
     const firebase = req.query.firebase === 'true'; // Default is false if not provided
     console.log(mongoId, ' xxxx ', firebase);
@@ -111,6 +112,8 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
 // POST /:id/update - Edit a user by ID
 router.post('/:id/update', async (req: Request, res: Response) => {
   try {
+    console.log('Update user');
+
     const userId = req.params.id;
     const updates = req.body; // Updates from the request body
     updates.updated_on = new Date();
@@ -130,6 +133,8 @@ router.post('/:id/update', async (req: Request, res: Response) => {
 // DELETE /:id/delete - Delete a user by ID
 router.delete('/:id/delete', async (req: Request, res: Response) => {
   try {
+    console.log('Delete user');
+
     const userId = req.params.id;
 
     // Find the user by ID and delete
