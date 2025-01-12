@@ -14,7 +14,7 @@ import httpLogger from './middlewares/httpLogger';
 import registerRouter from './routes/userRouter';
 import healthRouter from './routes/index';
 import authRoutes from './routes/authRoutes';
-import './config/firebaseAdmin';
+import './firebaseAdmin';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];

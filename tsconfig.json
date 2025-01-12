@@ -25,5 +25,5 @@
     "rootDir": "./src" // Folder containing source files
   },
   "exclude": ["node_modules", "dist"], // Exclude folders not to compile
-  "include": ["./src/**/*.ts"]
+  "include": ["./src/**/*.ts", "src/firebaseAdmin.ts", "src/mailer.ts"]
 }
