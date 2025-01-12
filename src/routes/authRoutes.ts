@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import transporter from '../config/mailer';
-import admin from '../config/firebaseAdmin';
+import transporter from '../mailer';
+import admin from '../firebaseAdmin';
 import { generateVerificationCode, getVerificationCode, deleteVerificationCode } from '../helpers/verificationCodes';
 import { User } from '../models/User';
 
