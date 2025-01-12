@@ -7,7 +7,11 @@ import http from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
 
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(__dirname, `../.env`) });
+const env = process.env.NODE_ENV || 'local';
+
+dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
+console.log(`Running in '${process.env.NODE_ENV}' mode`);
 
 import { handleError } from './helpers/error';
 import httpLogger from './middlewares/httpLogger';
