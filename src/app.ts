@@ -11,7 +11,7 @@ dotenv.config({ path: path.join(__dirname, `../.env`) });
 const env = process.env.NODE_ENV || 'local';
 
 dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
-console.log(`Running in '${process.env.NODE_ENV}' mode`);
+console.log(`Running in '${process.env.NODE_ENV}' enviroment`);
 
 import { handleError } from './helpers/error';
 import httpLogger from './middlewares/httpLogger';
