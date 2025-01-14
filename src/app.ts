@@ -7,7 +7,12 @@ import http from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
 
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(__dirname, `../.env`) });
+const env = process.env.NODE_ENV || 'local';
+
+dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
+
+console.log(`Running in '${process.env.NODE_ENV}' enviroment`);
 
 import { handleError } from './helpers/error';
 import httpLogger from './middlewares/httpLogger';
@@ -19,7 +24,8 @@ import './firebaseAdmin';
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
 
-const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/Hikemeet';
+const mongoURI: string = process.env.MONGO_URI || 'mongodb://localhost:27017/Hikemeet';
+
 mongoose
   .connect(mongoURI)
   .then(() => {
