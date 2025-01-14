@@ -5,9 +5,7 @@ name: Hikemeet Node.js CI
 
 on:
   push:
-    branches: ['main']
-  pull_request:
-    branches: ['main']
+    branches: ['production']
 
 jobs:
   build:
@@ -31,4 +29,6 @@ jobs:
         name: Run Linter Check
       - run: npm run build --if-present
         name: build project
-    #- run: npm test
+        #- run: npm test
+      - run: curl https://api.render.com/deploy/srv-cu1v1abqf0us73dggjn0?key=j6H1QMO1c3c
+        name: deploy app
