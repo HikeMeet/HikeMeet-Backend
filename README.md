@@ -8,14 +8,14 @@
 <body>
     <h1>Backend Setup and Usage Guide</h1>
 
-  <p>This guide explains how to set up and use the backend code for Hikemeet project covers cloning the repository, installing dependencies, configuring MongoDBand Firebase for both production and staging environments, and managingenvironment variables.</p>
+  <p>This guide explains how to set up and use the backend code for Hikemeet project covers cloning the repository, installing dependencies, configuring MongoDB and Firebase for both production and staging environments, and managingenvironment variables.</p>
   <hr>
   <div class="section">
       <h2>Prerequisites</h2>
       <p>Make sure you have the following installed on your system:</p>
       <ul>
           <li>Node.js (v16.x or higher)</li>
-          <li>npm or yarn</li>
+          <li>npm</li>
           <li>MongoDB (one for production, one for staging)</li>
           <li>Firebase project (one for production, one for staging)</li>
           <li>Git</li>
@@ -67,7 +67,9 @@ cd &lt;repository_name&gt;</code></pre>
           <li><strong>.env.prod</strong>: For production environment</li>
       </ul>
       <h4>Sample <code>.env</code> File Structure:</h4>
-      <pre><code># .env
+      <pre><code># enviroments
+
+# .env
 
 NODE_ENV=local # Use 'local' or 'prod'
 
@@ -97,7 +99,7 @@ FIREBASE_CLIENT_CERT_URL=
 <h3>6. Start the Server</h3> <p>To run the server in different environments:</p> <ul> <li><strong>Local Environment:</strong> <pre><code>npm run dev</code></pre> </li> <li><strong>Production Environment:</strong> <pre><code>npm start</code></pre> </li> <li><strong>Staging Environment:</strong> Switch the <code>.env</code> file to staging values and run: <pre><code>npm start</code></pre> </li> </ul
 <h3>7. Directory Structure</h3> <pre><code>src/ models/ # MongoDB schemas routes/ # API endpoints controllers/ # Business logic config/ # Configuration files (e.g., Firebase, MongoDB) middlewares/ # Middleware functions utils/ # Utility functions</code></pre> </div
 <hr
-<div class="section"> <h2>Deployment</h2> <p>To deploy the application:</p> <ol> <li>Ensure all environment variables are correctly configured.</li> <li>Deploy to your hosting service (e.g., AWS, Heroku, Vercel).</li> <li>For production, use the <code>.env.prod</code> file. For staging, use a <code>.env.stage</code> file.</li> </ol> </div
+<div class="section"> <h2>Deployment</h2> <p>To deploy the application:</p> <ol> <li>Ensure all environment variables are correctly configured.</li> <li>Deploy to your hosting service (e.g., AWS, Heroku, Vercel, Render).</li> <li>For production, use the <code>.env.prod</code> file. For staging, use a <code>.env.stage</code> file.</li> </ol> </div
 <hr
 <div class="section"> <h2>Troubleshooting</h2> <ul> <li><strong>MongoDB Connection Issues:</strong> <ul> <li>Ensure the correct connection string is provided.</li> <li>Verify network access rules in MongoDB Atlas.</li> </ul> </li> <li><strong>Firebase Authentication Issues:</strong> <ul> <li>Ensure the Firebase service account key is correctly configured.</li> <li>Verify project permissions in the Firebase Console.</li> </ul> </li> </ul> </div>
 
