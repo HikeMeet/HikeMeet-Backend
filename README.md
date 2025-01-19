@@ -1,34 +1,200 @@
-<h1 align="center">Nodejs-Express Typescript Boilerplate</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Setup and Usage Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1, h2, h3 {
+            color: #555;
+        }
+        pre, code {
+            background: #eee;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre {
+            margin: 20px 0;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        .section {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Backend Setup and Usage Guide</h1>
 
-<p align="center">
-  <b>Build your web servers without spending hours on setting up the project.</b></br>
-  <sub>Made with ❤️ by <a href="https://github.com/abhijeetgurle">Abhijeet</a></sub>
-</p>
+    <p>This guide explains how to set up and use the backend code for your project. It covers cloning the repository, installing dependencies, configuring MongoDB and Firebase for both production and staging environments, and managing environment variables.</p>
 
-<br>
+    <hr>
 
-## Why I Have Created This?
+    <div class="section">
+        <h2>Prerequisites</h2>
+        <p>Make sure you have the following installed on your system:</p>
+        <ul>
+            <li>Node.js (v16.x or higher)</li>
+            <li>npm or yarn</li>
+            <li>MongoDB (self-hosted or cloud-based like MongoDB Atlas)</li>
+            <li>Firebase project (one for production, one for staging)</li>
+            <li>Git</li>
+        </ul>
+    </div>
 
-There are many boilerplates available on the internet which providers a server app with nodejs, express & typescript but I found them either too complex for my use case or too simple where I need to configure lot of features later. So I build this repo to be used in projects which are simple & doesn't require lot of unnecessary tooling.
+    <hr>
 
-<br>
+    <div class="section">
+        <h2>Steps to Set Up the Backend</h2>
 
-## Features
+        <h3>1. Clone the Repository</h3>
+        <pre><code>git clone &lt;repository_url&gt;
 
-- **Simple Code** with no unnecessary dependencies.
-- **JSON & Cookie** parsing support with no need of configurations.
-- **Environment variables** can be easily added in file `.env` using library like [dotenv](https://www.npmjs.com/package/dotenv).
-- **Logging** support using libraries like [winston](https://www.npmjs.com/package/winston) & [morgan](https://www.npmjs.com/package/morgan)
-- **Prettier & ESlint** added so that your code looks & feels consistent.
+cd &lt;repository_name&gt;</code></pre>
 
-<br>
+        <h3>2. Install Dependencies</h3>
+        <pre><code>npm install</code></pre>
 
-## How To Use It
+        <h3>3. Configure MongoDB</h3>
+        <p><strong>Create two MongoDB databases:</strong></p>
+        <ol>
+            <li><strong>Production Database</strong>: This will hold production data.</li>
+            <li><strong>Staging Database</strong>: This will hold staging data.</li>
+        </ol>
+        <p>For MongoDB Atlas:</p>
+        <ol>
+            <li>Log in to MongoDB Atlas.</li>
+            <li>Create two clusters/databases, one for <code>production</code> and one for <code>staging</code>.</li>
+            <li>Obtain the connection strings for both databases.</li>
+        </ol>
+        <p>Update the <code>.env</code> file with these connection strings.</p>
 
-Download the zip file of this codebase & start writing your APIs 🎉.
+        <h3>4. Configure Firebase</h3>
+        <p><strong>Set up two Firebase projects:</strong></p>
+        <ol>
+            <li><strong>Production Firebase Project</strong>
+                <ul>
+                    <li>Go to the <a href="https://console.firebase.google.com">Firebase Console</a>.</li>
+                    <li>Create a new project for production.</li>
+                    <li>Add an app (Web/Android/iOS as required).</li>
+                    <li>Obtain the service account key JSON file and download it.</li>
+                </ul>
+            </li>
+            <li><strong>Staging Firebase Project</strong>
+                <ul>
+                    <li>Repeat the same steps to create a staging project.</li>
+                </ul>
+            </li>
+        </ol>
+        <p>Update the <code>.env</code> file to include Firebase configuration for both projects.</p>
 
-<br>
+        <h3>5. Set Up Environment Variables</h3>
+        <p>This project uses <code>.env</code> files to manage environment variables.</p>
+        <ul>
+            <li><strong>.env.local</strong>: For local development</li>
+            <li><strong>.env.prod</strong>: For production environment</li>
+        </ul>
 
-## License
+        <h4>Sample <code>.env</code> File Structure:</h4>
+        <pre><code># General
 
-[MIT](/LICENSE)
+PORT=5000
+NODE_ENV=local # Use 'local' or 'prod'
+
+# MongoDB
+
+MONGO_URI_LOCAL=mongodb://localhost:27017/local_db
+MONGO_URI_PROD=&lt;production_mongo_uri&gt;
+MONGO_URI_STAGE=&lt;staging_mongo_uri&gt;
+
+# Firebase
+
+FIREBASE_PROJECT_ID=&lt;firebase_project_id&gt;
+FIREBASE_PRIVATE_KEY=&lt;firebase_private_key&gt;
+FIREBASE_CLIENT_EMAIL=&lt;firebase_client_email&gt;</code></pre>
+
+        <h4>Switching Environments</h4>
+        <p>Update the <code>NODE_ENV</code> value in <code>.env</code> to either <code>local</code>, <code>stage</code>, or <code>prod</code>. For example:</p>
+        <pre><code>NODE_ENV=prod</code></pre>
+
+        <h3>6. Start the Server</h3>
+        <p>To run the server in different environments:</p>
+        <ul>
+            <li><strong>Local Environment:</strong>
+                <pre><code>npm run dev</code></pre>
+            </li>
+            <li><strong>Production Environment:</strong>
+                <pre><code>npm start</code></pre>
+            </li>
+            <li><strong>Staging Environment:</strong> Switch the <code>.env</code> file to staging values and run:
+                <pre><code>npm start</code></pre>
+            </li>
+        </ul>
+
+        <h3>7. Directory Structure</h3>
+        <pre><code>src/
+
+models/ # MongoDB schemas
+routes/ # API endpoints
+controllers/ # Business logic
+config/ # Configuration files (e.g., Firebase, MongoDB)
+middlewares/ # Middleware functions
+utils/ # Utility functions</code></pre>
+
+</div>
+
+    <hr>
+
+    <div class="section">
+        <h2>Deployment</h2>
+        <p>To deploy the application:</p>
+        <ol>
+            <li>Ensure all environment variables are correctly configured.</li>
+            <li>Deploy to your hosting service (e.g., AWS, Heroku, Vercel).</li>
+            <li>For production, use the <code>.env.prod</code> file. For staging, use a <code>.env.stage</code> file.</li>
+        </ol>
+    </div>
+
+    <hr>
+
+    <div class="section">
+        <h2>Troubleshooting</h2>
+        <ul>
+            <li><strong>MongoDB Connection Issues:</strong>
+                <ul>
+                    <li>Ensure the correct connection string is provided.</li>
+                    <li>Verify network access rules in MongoDB Atlas.</li>
+                </ul>
+            </li>
+            <li><strong>Firebase Authentication Issues:</strong>
+                <ul>
+                    <li>Ensure the Firebase service account key is correctly configured.</li>
+                    <li>Verify project permissions in the Firebase Console.</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <hr>
+
+    <p>Happy coding!</p>
+
+</body>
+</html>
