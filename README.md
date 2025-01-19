@@ -8,7 +8,7 @@
 <body>
     <h1>Backend Setup and Usage Guide</h1>
 
-  <p>This guide explains how to set up and use the backend code for your project.It covers cloning the repository, installing dependencies, configuring MongoDBand Firebase for both production and staging environments, and managingenvironment variables.</p>
+  <p>This guide explains how to set up and use the backend code for Hikemeet project covers cloning the repository, installing dependencies, configuring MongoDBand Firebase for both production and staging environments, and managingenvironment variables.</p>
   <hr>
   <div class="section">
       <h2>Prerequisites</h2>
@@ -16,7 +16,7 @@
       <ul>
           <li>Node.js (v16.x or higher)</li>
           <li>npm or yarn</li>
-          <li>MongoDB (self-hosted or cloud-based like MongoDB Atlas)</li>
+          <li>MongoDB (one for production, one for staging)</li>
           <li>Firebase project (one for production, one for staging)</li>
           <li>Git</li>
       </ul>
@@ -26,7 +26,7 @@
       <h2>Steps to Set Up the Backend</h2>
       <h3>1. Clone the Repository</h3>
       <pre><code>git clone &lt;repository_url&gt;
-c &lt;repository_name&gt;</code></pre>
+cd &lt;repository_name&gt;</code></pre>
       <h3>2. Install Dependencies</h3>
       <pre><code>npm install</code></pre>
       <h3>3. Configure MongoDB</h3>
@@ -67,22 +67,31 @@ c &lt;repository_name&gt;</code></pre>
           <li><strong>.env.prod</strong>: For production environment</li>
       </ul>
       <h4>Sample <code>.env</code> File Structure:</h4>
-      <pre><code># General
+      <pre><code># .env
 
-PORT=5000
 NODE_ENV=local # Use 'local' or 'prod'
+
+# .env.local / .env.prod
+
+PORT=
 
 # MongoDB
 
-MONGO_URI_LOCAL=mongodb://localhost:27017/local_db
-MONGO_URI_PROD=&lt;production_mongo_uri&gt;
-MONGO_URI_STAGE=&lt;staging_mongo_uri&gt;
+MONGO_URI=
 
 # Firebase
 
-FIREBASE_PROJECT_ID=&lt;firebase_project_id&gt;
-FIREBASE_PRIVATE_KEY=&lt;firebase_private_key&gt;
-FIREBASE_CLIENT_EMAIL=&lt;firebase_client_email&gt;</code></pre>
+FIREBASE_TYPE=
+FIREBASE_PROJECT_ID=
+FIREBASE_PRIVATE_KEY_ID=
+FIREBASE_PRIVATE_KEY=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_CLIENT_ID=
+FIREBASE_AUTH_URI=
+FIREBASE_TOKEN_URI=
+FIREBASE_AUTH_PROVIDER_CERT_URL=
+FIREBASE_CLIENT_CERT_URL=
+</code></pre>
 
 <h4>Switching Environments</h4> <p>Update the <code>NODE_ENV</code> value in <code>.env</code> to either <code>local</code>, <code>stage</code>, or <code>prod</code>. For example:</p> <pre><code>NODE_ENV=prod</code></pre
 <h3>6. Start the Server</h3> <p>To run the server in different environments:</p> <ul> <li><strong>Local Environment:</strong> <pre><code>npm run dev</code></pre> </li> <li><strong>Production Environment:</strong> <pre><code>npm start</code></pre> </li> <li><strong>Staging Environment:</strong> Switch the <code>.env</code> file to staging values and run: <pre><code>npm start</code></pre> </li> </ul
