@@ -3,42 +3,7 @@
 <head> 
  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Backend Setup and Usage Guide</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0 20px;
-            background-color: #f9f9f9;
-            color: #333;
-        }
-        h1, h2, h3 {
-            color: #555;
-        }
-        pre, code {
-            background: #eee;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
-        }
-        pre {
-            margin: 20px 0;
-        }
-        a {
-            color: #007BFF;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        ul {
-            padding-left: 20px;
-        }
-        .section {
-            margin: 20px 0;
-        }
-    </style>
+  
 </head>
 <body>
     <h1>Backend Setup and Usage Guide</h1>
