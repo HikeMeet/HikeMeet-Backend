@@ -19,6 +19,10 @@ import httpLogger from './middlewares/httpLogger';
 import registerRouter from './routes/userRouter';
 import healthRouter from './routes/index';
 import authRoutes from './routes/authRoutes';
+import searchRoutes from './routes/searchRoutes';
+import friendsRoutes from './routes/friendsRoutes';
+
+
 import './firebaseAdmin';
 
 const app: express.Application = express();
@@ -51,6 +55,8 @@ mongoose
     app.use('/api/', healthRouter);
     app.use('/api/user', registerRouter);
     app.use('/api/auth', authRoutes);
+    app.use('/api/search', searchRoutes); //search all users
+    app.use('/api/friends', friendsRoutes); //action on users (check status, add, remove, cancel request)
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {

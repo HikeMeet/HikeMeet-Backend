@@ -21,8 +21,8 @@ export interface IUser extends Document {
   };
   friends?: {
     status?: 'active' | 'pending' | 'blocked';
-    id?: string;
-  }[];
+    id?: mongoose.Schema.Types.ObjectId | string; // תמיכה ב-ObjectId וגם string
+  }[];  
   firebase_id: string;
   created_on: Date;
   updated_on: Date;
@@ -60,6 +60,7 @@ const userSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
       },
+      _id: false, //cancel _id automatic (its was problem)
     },
   ],
   firebase_id: { type: String },
