@@ -7,19 +7,29 @@ import http from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
 
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(__dirname, `../.env`) });
+const env = process.env.NODE_ENV || 'local';
+
+dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
+
+console.log(`Running in '${process.env.NODE_ENV}' enviroment`);
 
 import { handleError } from './helpers/error';
 import httpLogger from './middlewares/httpLogger';
 import registerRouter from './routes/userRouter';
 import healthRouter from './routes/index';
 import authRoutes from './routes/authRoutes';
+import searchRoutes from './routes/searchRoutes';
+import friendsRoutes from './routes/friendsRoutes';
+
+
 import './firebaseAdmin';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
 
-const mongoURI: string = process.env.MONGO_URI_STAGE || 'mongodb://localhost:27017/Hikemeet';
+const mongoURI: string = process.env.MONGO_URI || 'mongodb://localhost:27017/Hikemeet';
+
 mongoose
   .connect(mongoURI)
   .then(() => {
@@ -31,7 +41,7 @@ mongoose
           if (!origin || !allowedOrigins.includes(origin)) {
             callback(null, true);
           } else {
-            callback(new Error('not allowed by CORS' + origin));
+            callback(new Error('Not allowed by CORS' + origin));
           }
         },
       }),
@@ -45,6 +55,8 @@ mongoose
     app.use('/api/', healthRouter);
     app.use('/api/user', registerRouter);
     app.use('/api/auth', authRoutes);
+    app.use('/api/search', searchRoutes); //search all users
+    app.use('/api/friends', friendsRoutes); //action on users (check status, add, remove, cancel request)
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
