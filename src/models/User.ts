@@ -22,7 +22,7 @@ export interface IUser extends Document {
   friends?: {
     status?: 'active' | 'pending' | 'blocked';
     id?: mongoose.Schema.Types.ObjectId | string; // תמיכה ב-ObjectId וגם string
-  }[];  
+  }[];
   firebase_id: string;
   created_on: Date;
   updated_on: Date;

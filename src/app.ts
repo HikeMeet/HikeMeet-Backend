@@ -22,7 +22,6 @@ import authRoutes from './routes/authRoutes';
 import searchRoutes from './routes/searchRoutes';
 import friendsRoutes from './routes/friendsRoutes';
 
-
 import './firebaseAdmin';
 
 const app: express.Application = express();
