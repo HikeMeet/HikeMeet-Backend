@@ -90,6 +90,7 @@ router.post("/cancel-pending", async (req: Request, res: Response) => {
   }
 });
 
+
 // Remove friend
 router.post("/remove", async (req: Request, res: Response) => {
   try {
@@ -107,7 +108,12 @@ router.post("/remove", async (req: Request, res: Response) => {
     }
 
     currentUser.friends = currentUser.friends?.filter((f) => {
-      return f.id !== friendId;
+      if (!f.id) {
+        console.log("Friend ID is undefined. Skipping this friend:", f);
+        return true;
+      }
+      const friendObjectId = f.id.toString(); 
+      return friendObjectId !== friendId;
     });
 
     await currentUser.save();
