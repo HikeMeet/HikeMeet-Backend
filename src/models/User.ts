@@ -20,7 +20,7 @@ export interface IUser extends Document {
     total_saves?: number;
   };
   friends?: {
-    status?: 'active' | 'pending' | 'blocked';
+    status?: 'active' | 'pending_sent' | 'pending_recived' | 'blocked';
     id?: string;
   }[];
   firebase_id: string;
@@ -53,8 +53,8 @@ const userSchema = new Schema({
     {
       status: {
         type: String,
-        enum: ['active', 'pending', 'blocked'],
-        default: 'pending',
+        enum: ['active', 'pending_sent', 'pending_recived', 'blocked'],
+        default: 'pending_sent',
       },
       id: {
         type: mongoose.Schema.Types.ObjectId,
