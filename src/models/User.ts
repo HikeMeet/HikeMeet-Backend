@@ -37,7 +37,9 @@ const userSchema = new Schema({
   last_name: { type: String },
   gender: { type: String },
   birth_date: { type: Date },
-  profile_picture: { type: String },
+  profile_picture: {
+    type: String,
+  },
   bio: { type: String },
   facebook_link: { type: String },
   instagram_link: { type: String },
