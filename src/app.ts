@@ -55,7 +55,7 @@ mongoose
     app.use('/api/user', registerRouter);
     app.use('/api/auth', authRoutes);
     app.use('/api/search', searchRoutes); //search all users
-    app.use('/api/friends', friendsRoutes); //action on users (check status, add, remove, cancel request)
+    app.use('/api/friend', friendsRoutes); //action on users (check status, add, remove, cancel request)
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {

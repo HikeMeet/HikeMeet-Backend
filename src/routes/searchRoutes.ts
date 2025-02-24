@@ -4,7 +4,8 @@ import { User } from '../models/User';
 const router = express.Router();
 
 //  GET /api/search/friends
-router.get('/friends', async (req: Request, res: Response) => {
+//  GET /api/search/users
+router.get('/users', async (req: Request, res: Response) => {
   try {
     const { query } = req.query;
 
