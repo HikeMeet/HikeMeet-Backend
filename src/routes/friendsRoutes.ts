@@ -33,7 +33,6 @@ router.get('/:userId', async (req: Request, res: Response) => {
 // Send Friend Request
 router.post('/send-request', async (req: Request, res: Response) => {
   try {
-    console.log(':::::::', 'currentUserId');
     const { currentUserId, targetUserId } = req.body;
 
     // Validate request body
@@ -47,6 +46,12 @@ router.post('/send-request', async (req: Request, res: Response) => {
 
     if (!sender || !receiver) {
       return res.status(404).json({ message: 'One or both users were not found.' });
+    }
+
+    // Check if the receiver has blocked the sender
+    const blockEntry = receiver.friends?.find((friend) => friend.id?.toString() === currentUserId && friend.status === 'blocked');
+    if (blockEntry) {
+      return res.status(403).json({ message: 'You cannot send a friend request because you are blocked by this user.' });
     }
 
     // Check if a friend request or friendship already exists
@@ -227,6 +232,78 @@ router.post('/revoke-request', async (req: Request, res: Response) => {
     res.status(200).json({ message: 'Friend request revoked successfully.' });
   } catch (error) {
     console.error('Error revoking friend request:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+// Block User Endpoint
+router.post('/block', async (req: Request, res: Response) => {
+  try {
+    const { currentUserId, targetUserId } = req.body;
+    if (!currentUserId || !targetUserId) {
+      return res.status(400).json({ message: 'Both currentUserId and targetUserId are required.' });
+    }
+
+    // Find the user who is blocking and the target user
+    const user = await User.findById(currentUserId);
+    const targetUser = await User.findById(targetUserId);
+    if (!user || !targetUser) {
+      return res.status(404).json({ message: 'One or both users were not found.' });
+    }
+
+    // Ensure user.friends is defined
+    user.friends = user.friends || [];
+
+    // Remove any existing relationship between the two users from the blocker's side
+    user.friends = user.friends.filter((friend) => friend.id?.toString() !== targetUserId);
+
+    // Add the blocked entry for the target user on blocker's side
+    user.friends.push({
+      id: targetUser._id as mongoose.Schema.Types.ObjectId,
+      status: 'blocked',
+    });
+
+    // Remove the blocker from the target user's friend list (if present)
+    targetUser.friends = targetUser.friends?.filter((friend) => friend.id?.toString() !== currentUserId) || [];
+
+    // Save both users
+    await user.save();
+    await targetUser.save();
+
+    res.status(200).json({ message: 'User blocked successfully.' });
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+// Unblock User Endpoint
+router.post('/unblock', async (req: Request, res: Response) => {
+  try {
+    const { currentUserId, targetUserId } = req.body;
+    if (!currentUserId || !targetUserId) {
+      return res.status(400).json({ message: 'Both currentUserId and targetUserId are required.' });
+    }
+
+    // Find the user who wants to unblock
+    const user = await User.findById(currentUserId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Check that a blocked entry exists
+    const blockedEntry = user.friends?.find((friend) => friend.id?.toString() === targetUserId && friend.status === 'blocked');
+    if (!blockedEntry) {
+      return res.status(400).json({ message: 'No blocked relationship found with the specified user.' });
+    }
+
+    // Remove the blocked entry from the user's friends array
+    user.friends = user.friends?.filter((friend) => !(friend.id?.toString() === targetUserId && friend.status === 'blocked'));
+
+    await user.save();
+    res.status(200).json({ message: 'User unblocked successfully.' });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
