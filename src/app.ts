@@ -21,6 +21,7 @@ import healthRouter from './routes/index';
 import authRoutes from './routes/authRoutes';
 import searchRoutes from './routes/searchRoutes';
 import friendsRoutes from './routes/friendsRoutes';
+import adminRoutes from './routes/admin';
 
 import './firebaseAdmin';
 
@@ -56,6 +57,7 @@ mongoose
     app.use('/api/auth', authRoutes);
     app.use('/api/search', searchRoutes); //search all users
     app.use('/api/friend', friendsRoutes); //action on users (check status, add, remove, cancel request)
+    app.use('/api/admin', adminRoutes); //action on users (check status, add, remove, cancel request)
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
