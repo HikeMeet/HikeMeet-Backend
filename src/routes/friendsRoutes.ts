@@ -38,6 +38,46 @@ router.get('/:userId', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/:userId/friends', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { status, friendId } = req.query; // optional query parameters
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    // Find the user document by userId.
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let friendList = user.friends || [];
+
+    // Optionally filter the friend list by status.
+    if (status && typeof status === 'string') {
+      friendList = friendList.filter((friend) => friend.status === status);
+    }
+
+    // Optionally filter by a specific friendId.
+    if (friendId && typeof friendId === 'string') {
+      friendList = friendList.filter((friend) => friend.id?.toString() === friendId);
+    }
+
+    // Extract the friend IDs from the friend list.
+    const friendIds = friendList.map((friend: any) => friend.id);
+
+    // Find all user documents that have an _id in the friendIds array.
+    const friendsData = await User.find({ _id: { $in: friendIds } });
+
+    res.status(200).json({ friends: friendsData });
+  } catch (error) {
+    console.error('Error getting friend details:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // Send Friend Request
 router.post('/send-request', async (req: Request, res: Response) => {
   try {
