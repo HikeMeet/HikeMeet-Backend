@@ -4,6 +4,7 @@ import { User } from '../models/User'; // Import the User model
 
 const router = express.Router();
 
+// delet user form firebase and mongo
 router.delete('/:id/delete', async (req: Request, res: Response) => {
   try {
     console.log('Delete Firebase user');
