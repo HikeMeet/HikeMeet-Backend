@@ -4,10 +4,11 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
+//returns user frineds list
 router.get('/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { status } = req.query;
+    const { status, friendId } = req.query; // Accept a friendId query parameter
 
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required' });
@@ -19,8 +20,15 @@ router.get('/:userId', async (req: Request, res: Response) => {
     }
 
     let friends = user.friends || [];
-    if (status) {
+
+    // Filter by status if provided.
+    if (status && typeof status === 'string') {
       friends = friends.filter((friend) => friend.status === status);
+    }
+
+    // Filter by friendId if provided.
+    if (friendId && typeof friendId === 'string') {
+      friends = friends.filter((friend) => friend.id?.toString() === friendId);
     }
 
     res.status(200).json({ friends });
