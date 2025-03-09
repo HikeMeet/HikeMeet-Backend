@@ -24,6 +24,7 @@ import friendsRoutes from './routes/friendsRoutes';
 import adminRoutes from './routes/admin';
 
 import './firebaseAdmin';
+import tripRoutes from './routes/tripRoutes';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
@@ -58,6 +59,7 @@ mongoose
     app.use('/api/search', searchRoutes); //search all users
     app.use('/api/friend', friendsRoutes); //action on users (check status, add, remove, cancel request)
     app.use('/api/admin', adminRoutes); //action on users (check status, add, remove, cancel request)
+    app.use('/api/trips', tripRoutes); //action on users (check status, add, remove, cancel request)
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
