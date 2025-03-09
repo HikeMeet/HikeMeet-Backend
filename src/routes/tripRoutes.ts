@@ -3,7 +3,7 @@ import { Trip } from '../models/Trip'; // Adjust the path if needed
 
 const router = express.Router();
 
-// POST /trips - Create a new trip
+// POST /trips/create - Create a new trip
 router.post('/create', async (req: Request, res: Response) => {
   try {
     const { name, location, description, images, tags, createdBy } = req.body;
@@ -33,7 +33,7 @@ router.post('/create', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/trips - Retrieve all trips
+// GET /api/trips/all - Retrieve all trips
 router.get('/all', async (_req: Request, res: Response) => {
   try {
     const trips = await Trip.find().populate('createdBy', 'username email');
