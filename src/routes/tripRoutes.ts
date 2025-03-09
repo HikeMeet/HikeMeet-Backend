@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Trip } from '../models/Trip'; // Adjust the path if needed
+import { ArchivedTrip } from '../models/ArchiveTrip'; // Adjust the path if needed
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -56,6 +58,89 @@ router.get('/:id', async (req: Request, res: Response) => {
     res.status(200).json(trip);
   } catch (error: any) {
     console.error('Error fetching trip:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// move from Trips collection to ArchiveTrips collection
+router.post('/archive/:id', async (req: Request, res: Response) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const tripId = req.params.id;
+    // Find the trip to be archived using the session
+    const trip = await Trip.findById(tripId).session(session);
+    if (!trip) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    // Create a new ArchivedTrip document using the data from the found trip,
+    // and assign the same _id.
+    const archivedTrip = new ArchivedTrip({
+      _id: trip._id, // explicitly set the _id to match the original trip
+      name: trip.name,
+      location: trip.location,
+      description: trip.description,
+      images: trip.images,
+      tags: trip.tags,
+      createdBy: trip.createdBy,
+      archivedAt: new Date(),
+    });
+
+    // Save the archived trip with the session
+    await archivedTrip.save({ session });
+
+    // Delete the trip from the original collection using the session
+    await trip.deleteOne({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({ message: 'Trip archived successfully', archivedTrip });
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Error archiving trip:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /trips/archive/clear - Delete all archived trips
+router.delete('/archive/clear', async (_req: Request, res: Response) => {
+  try {
+    await ArchivedTrip.deleteMany({});
+    res.status(200).json({ message: 'All archived trips cleared' });
+  } catch (error: any) {
+    console.error('Error clearing archived trips:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /trips/archive/:id - Delete a single archived trip by its ID
+router.delete('/archive/:id', async (req: Request, res: Response) => {
+  try {
+    const archivedTripId = req.params.id;
+    const result = await ArchivedTrip.deleteOne({ _id: archivedTripId });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: 'Archived trip not found' });
+    }
+    return res.status(200).json({ message: 'Archived trip deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting archived trip:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /trips/archive/all - Retrieve all archived trips
+router.get('/archive/all', async (_req: Request, res: Response) => {
+  try {
+    const archivedTrips = await ArchivedTrip.find();
+    res.status(200).json(archivedTrips);
+  } catch (error: any) {
+    console.error('Error fetching archived trips:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
