@@ -188,4 +188,20 @@ router.get('/archive/all', async (_req: Request, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// GET /api/trips/:id - Retrieve a specific trip by its ID
+router.get('/archive/:id', async (req: Request, res: Response) => {
+  try {
+    const tripId = req.params.id;
+    const archivedTrip = await ArchivedTrip.findById(tripId);
+    if (!archivedTrip) {
+      return res.status(404).json({ message: 'Archived trip not found' });
+    }
+    res.status(200).json(archivedTrip);
+  } catch (error: any) {
+    console.error('Error fetching archived trip:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 export default router;
