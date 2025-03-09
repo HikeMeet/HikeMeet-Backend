@@ -108,6 +108,50 @@ router.post('/archive/:id', async (req: Request, res: Response) => {
   }
 });
 
+// POST /trips/unarchive/:id - Move a trip from the ArchivedTrip collection back to the Trip collection
+router.post('/unarchive/:id', async (req: Request, res: Response) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const tripId = req.params.id;
+    // Find the archived trip using the session
+    const archivedTrip = await ArchivedTrip.findById(tripId).session(session);
+    if (!archivedTrip) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Archived trip not found' });
+    }
+
+    // Create a new Trip document using the data from the archived trip
+    const trip = new Trip({
+      _id: archivedTrip._id, // reusing the same _id if desired, otherwise omit to get a new one
+      name: archivedTrip.name,
+      location: archivedTrip.location,
+      description: archivedTrip.description,
+      images: archivedTrip.images,
+      tags: archivedTrip.tags,
+      createdBy: archivedTrip.createdBy,
+      // Add any additional fields if needed
+    });
+
+    // Save the trip to the active trips collection with the session
+    await trip.save({ session });
+    // Delete the trip from the ArchivedTrip collection using the session
+    await archivedTrip.deleteOne({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({ message: 'Trip unarchived successfully', trip });
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Error unarchiving trip:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // DELETE /trips/archive/clear - Delete all archived trips
 router.delete('/archive/clear', async (_req: Request, res: Response) => {
   try {
