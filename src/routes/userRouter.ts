@@ -1,14 +1,36 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
+import { v2 as cloudinary } from 'cloudinary';
+import multer from 'multer';
 
 const router = express.Router();
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+const streamUpload = (buffer: Buffer): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({ folder: 'profile_images' }, (error: any, result: any) => {
+      if (result) resolve(result);
+      else reject(error);
+    });
+    stream.end(buffer);
+  });
+};
+const DEFAULT_IMAGE_ID = 'profile_images/tpyngwygeoykeur0hgre';
+const DEFAULT_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1742156351/profile_images/tpyngwygeoykeur0hgre.jpg';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // POST /insert route
 router.post('/insert', async (req: Request, res: Response) => {
   try {
     console.log('inserting');
     // Extract user data from the request body
-    const { username, email, first_name, last_name, gender, birth_date, profile_picture, bio, facebook_link, instagram_link, role, firebase_id } =
+    const { username, email, first_name, last_name, gender, birth_date, /*profile_picture,*/ bio, facebook_link, instagram_link, role, firebase_id } =
       req.body;
 
     // Validate required fields
@@ -46,8 +68,7 @@ router.post('/insert', async (req: Request, res: Response) => {
         error: conflictMessages.join(' '), // Combine all conflict messages
       });
     }
-    const defaultImage =
-      'https://img.freepik.com/premium-vector/avatar-profile-icon-flat-style-male-user-profile-vector-illustration-isolated-background-man-profile-sign-business-concept_157943-38764.jpg?semt=ais_hybrid';
+
     // Create a new user
     const newUser = new User({
       username,
@@ -56,7 +77,10 @@ router.post('/insert', async (req: Request, res: Response) => {
       last_name,
       gender: gender || '',
       birth_date: birth_date || '',
-      profile_picture: profile_picture || defaultImage,
+      profile_picture: {
+        url: DEFAULT_IMAGE_URL,
+        image_id: DEFAULT_IMAGE_ID,
+      },
       bio: bio || '',
       facebook_link: facebook_link || '',
       instagram_link: instagram_link || '',
@@ -156,4 +180,57 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
   }
 });
 
+// POST /:id/upload-profile-picture
+// This endpoint receives an image file, uploads it to Cloudinary, updates the user in MongoDB,
+// and then deletes the old image from Cloudinary. If any step fails, all changes are rolled back.
+router.post('/:id/upload-profile-picture', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const userId: string = req.params.id;
+
+    // First, get the current user from MongoDB to retrieve the current image id.
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const oldImageId = user.profile_picture?.image_id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Upload new image file to Cloudinary.
+    const result = await streamUpload(req.file.buffer);
+    if (!result.secure_url || !result.public_id) {
+      return res.status(500).json({ error: 'Failed to upload image to Cloudinary' });
+    }
+
+    // Log the new image ID and URL.
+    console.log('old image ID:', oldImageId);
+    console.log('New uploaded image ID:', result.public_id);
+    console.log('New uploaded image URL:', result.secure_url);
+
+    // Update the user's profile_picture in MongoDB.
+    user.profile_picture = {
+      url: result.secure_url,
+      image_id: result.public_id,
+    };
+    user.updated_on = new Date();
+    await user.save();
+
+    // If an old image exists, delete it from Cloudinary.
+    if (oldImageId && oldImageId !== DEFAULT_IMAGE_ID) {
+      const deletionResult: any = await cloudinary.uploader.destroy(oldImageId);
+      if (deletionResult.result !== 'ok') {
+        console.error('Failed to delete old image from Cloudinary:', deletionResult);
+        // Optionally: you may want to notify or log this error without failing the request.
+      }
+    }
+
+    res.status(200).json(user);
+  } catch (error: any) {
+    console.error('Error uploading profile picture:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 export default router;

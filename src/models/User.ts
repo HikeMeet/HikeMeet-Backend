@@ -7,7 +7,10 @@ export interface IUser extends Document {
   last_name?: string;
   gender?: string;
   birth_date?: Date;
-  profile_picture?: string;
+  profile_picture?: {
+    url: string;
+    image_id: string;
+  };
   bio?: string;
   facebook_link?: string;
   instagram_link?: string;
@@ -38,7 +41,8 @@ const userSchema = new Schema({
   gender: { type: String },
   birth_date: { type: Date },
   profile_picture: {
-    type: String,
+    url: { type: String },
+    image_id: { type: String },
   },
   bio: { type: String },
   facebook_link: { type: String },
