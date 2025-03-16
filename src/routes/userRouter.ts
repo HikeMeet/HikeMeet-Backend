@@ -16,6 +16,8 @@ const streamUpload = (buffer: Buffer): Promise<any> => {
     stream.end(buffer);
   });
 };
+const DEFAULT_IMAGE_ID = 'profile_images/tpyngwygeoykeur0hgre';
+const DEFAULT_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1742156351/profile_images/tpyngwygeoykeur0hgre.jpg';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -66,8 +68,7 @@ router.post('/insert', async (req: Request, res: Response) => {
         error: conflictMessages.join(' '), // Combine all conflict messages
       });
     }
-    // const defaultImage =
-    //   'https://img.freepik.com/premium-vector/avatar-profile-icon-flat-style-male-user-profile-vector-illustration-isolated-background-man-profile-sign-business-concept_157943-38764.jpg?semt=ais_hybrid';
+
     // Create a new user
     const newUser = new User({
       username,
@@ -76,7 +77,10 @@ router.post('/insert', async (req: Request, res: Response) => {
       last_name,
       gender: gender || '',
       birth_date: birth_date || '',
-      // profile_picture: profile_picture || defaultImage,
+      profile_picture: {
+        url: DEFAULT_IMAGE_URL,
+        image_id: DEFAULT_IMAGE_ID,
+      },
       bio: bio || '',
       facebook_link: facebook_link || '',
       instagram_link: instagram_link || '',
@@ -182,7 +186,6 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
 router.post('/:id/upload-profile-picture', upload.single('image'), async (req: Request, res: Response) => {
   try {
     const userId: string = req.params.id;
-    const DEFAULT_IMAGE_ID = 'profile_images/tpyngwygeoykeur0hgre';
 
     // First, get the current user from MongoDB to retrieve the current image id.
     const user = await User.findById(userId);
