@@ -20,8 +20,8 @@ export interface IUser extends Document {
     total_saves?: number;
   };
   friends?: {
-    status?: 'active' | 'pending' | 'blocked';
-    id?: string;
+    status?: 'request_sent' | 'request_received' | 'accepted' | 'blocked';
+    id?: mongoose.Schema.Types.ObjectId;
   }[];
   firebase_id: string;
   created_on: Date;
@@ -37,7 +37,9 @@ const userSchema = new Schema({
   last_name: { type: String },
   gender: { type: String },
   birth_date: { type: Date },
-  profile_picture: { type: String },
+  profile_picture: {
+    type: String,
+  },
   bio: { type: String },
   facebook_link: { type: String },
   instagram_link: { type: String },
@@ -53,13 +55,13 @@ const userSchema = new Schema({
     {
       status: {
         type: String,
-        enum: ['active', 'pending', 'blocked'],
-        default: 'pending',
+        enum: ['request_sent', 'request_received', 'accepted', 'blocked'],
       },
       id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
       },
+      _id: false, //cancel _id automatic (its was problem)
     },
   ],
   firebase_id: { type: String },

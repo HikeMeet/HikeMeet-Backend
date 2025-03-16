@@ -6,14 +6,14 @@ name: Hikemeet Node.js CI
 on:
   push:
     branches: ['production']
-
+  pull_request:
+    branches: ['production']
 jobs:
   build:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-
         node-version: [22.x] #, 20.x, 22.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 

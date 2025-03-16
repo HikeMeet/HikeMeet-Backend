@@ -46,7 +46,8 @@ router.post('/insert', async (req: Request, res: Response) => {
         error: conflictMessages.join(' '), // Combine all conflict messages
       });
     }
-
+    const defaultImage =
+      'https://img.freepik.com/premium-vector/avatar-profile-icon-flat-style-male-user-profile-vector-illustration-isolated-background-man-profile-sign-business-concept_157943-38764.jpg?semt=ais_hybrid';
     // Create a new user
     const newUser = new User({
       username,
@@ -55,7 +56,7 @@ router.post('/insert', async (req: Request, res: Response) => {
       last_name,
       gender: gender || '',
       birth_date: birth_date || '',
-      profile_picture: profile_picture || '',
+      profile_picture: profile_picture || defaultImage,
       bio: bio || '',
       facebook_link: facebook_link || '',
       instagram_link: instagram_link || '',
@@ -84,18 +85,23 @@ router.post('/insert', async (req: Request, res: Response) => {
 // GET /:mongoId - Get a user by ID or Firebase ID
 router.get('/:mongoId', async (req: Request, res: Response) => {
   try {
-    console.log('Get user');
     const { mongoId } = req.params;
     const firebase = req.query.firebase === 'true'; // Default is false if not provided
     console.log(mongoId, ' xxxx ', firebase);
     let user;
-
-    if (firebase) {
-      // Search for the user by Firebase UID
-      user = await User.findOne({ firebase_id: mongoId });
+    if (mongoId === 'all') {
+      console.log('Get all user');
+      user = await User.find({});
     } else {
-      // Search for the user by MongoDB ID
-      user = await User.findById(mongoId);
+      if (firebase) {
+        // Search for the user by Firebase UID
+        console.log('Get user with firebase id');
+        user = await User.findOne({ firebase_id: mongoId });
+      } else {
+        // Search for the user by MongoDB ID
+        console.log('Get user with monogo id');
+        user = await User.findById(mongoId);
+      }
     }
 
     if (!user) {
