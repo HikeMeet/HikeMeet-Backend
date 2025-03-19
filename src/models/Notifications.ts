@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model } from 'mongoose';
+import mongoose, { Document, Model, Schema, model } from 'mongoose';
 
 export interface INotification extends Document {
   user: mongoose.Schema.Types.ObjectId; // The recipient of the notification
@@ -10,6 +10,8 @@ export interface INotification extends Document {
   created_at: Date;
   updated_at: Date;
 }
+
+type INotificationModel = Model<INotification>;
 
 const notificationSchema = new Schema<INotification>(
   {
@@ -23,4 +25,4 @@ const notificationSchema = new Schema<INotification>(
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
 );
 
-export const Notification: Model<INotification> = mongoose.model<INotification>('Notification', notificationSchema);
+export const Notification: INotificationModel = model<INotification, INotificationModel>('Notification', notificationSchema);

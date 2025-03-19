@@ -3,8 +3,7 @@ import { Group } from '../models/Group';
 import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
-import { Notification } from '../models/notification';
-
+import { Notification } from '../models/Notifications';
 const router = express.Router();
 
 // POST /create - Create a new group
