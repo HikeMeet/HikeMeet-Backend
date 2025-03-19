@@ -73,4 +73,19 @@ const userSchema = new Schema({
   updated_on: { type: Date, required: true, default: Date.now },
 });
 
+// Mongoose Middleware: Cleanup friend references after a user is deleted
+userSchema.post('findOneAndDelete', async function (this: any, deletedDoc, next) {
+  if (deletedDoc) {
+    try {
+      await this.model.updateMany({ 'friends.id': deletedDoc._id }, { $pull: { friends: { id: deletedDoc._id } } });
+      next();
+    } catch (error) {
+      console.error('Error cleaning up friend references:', error);
+      next(error);
+    }
+  } else {
+    next();
+  }
+});
+
 export const User: IUserModel = model<IUser, IUserModel>('User', userSchema);

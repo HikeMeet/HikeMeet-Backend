@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
+import mongoose from 'mongoose';
+import { removeOldImage } from '../utils/cloudinaryHelper';
 
 const router = express.Router();
 const storage = multer.memoryStorage();
@@ -164,14 +166,21 @@ router.post('/:id/update', async (req: Request, res: Response) => {
 router.delete('/:id/delete', async (req: Request, res: Response) => {
   try {
     console.log('Delete user');
-
     const userId = req.params.id;
+    console.log('User ID:', userId);
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user id provided' });
+    }
 
     // Find the user by ID and delete
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // Remove the profile picture from Cloudinary if it exists and is not the default image.
+    await removeOldImage(deletedUser.profile_picture?.image_id, DEFAULT_IMAGE_ID);
 
     res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
   } catch (error) {
@@ -219,13 +228,7 @@ router.post('/:id/upload-profile-picture', upload.single('image'), async (req: R
     await user.save();
 
     // If an old image exists, delete it from Cloudinary.
-    if (oldImageId && oldImageId !== DEFAULT_IMAGE_ID) {
-      const deletionResult: any = await cloudinary.uploader.destroy(oldImageId);
-      if (deletionResult.result !== 'ok') {
-        console.error('Failed to delete old image from Cloudinary:', deletionResult);
-        // Optionally: you may want to notify or log this error without failing the request.
-      }
-    }
+    await removeOldImage(oldImageId, DEFAULT_IMAGE_ID);
 
     res.status(200).json(user);
   } catch (error: any) {

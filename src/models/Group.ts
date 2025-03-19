@@ -1,5 +1,7 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 
+/* Embedded Interfaces */
+
 // Interface for a group member
 export interface IGroupMember {
   user: mongoose.Schema.Types.ObjectId;
@@ -7,11 +9,12 @@ export interface IGroupMember {
   joinedAt: Date;
 }
 
-// Interface for a group invitation
-export interface IGroupInvite {
+// Interface for a pending membership action (invitation or join request)
+export interface IGroupPending {
   user: mongoose.Schema.Types.ObjectId;
+  origin: 'invite' | 'request'; // 'invite' when admin sends an invite; 'request' when a user requests to join
   status: 'pending' | 'accepted' | 'declined';
-  invitedAt: Date;
+  createdAt: Date;
 }
 
 /* Main Group Interface */
@@ -26,7 +29,7 @@ export interface IGroup extends Document {
   status: 'planned' | 'active' | 'completed';
   createdBy: mongoose.Schema.Types.ObjectId;
   members: IGroupMember[];
-  invites: IGroupInvite[];
+  pending: IGroupPending[]; // unified list for invites and join requests
   scheduledStart?: Date;
   scheduledEnd?: Date;
   meetingPoint?: string;
@@ -50,12 +53,13 @@ const GroupMemberSchema = new Schema<IGroupMember>(
   { _id: false },
 );
 
-// Schema for a group invitation
-const GroupInviteSchema = new Schema<IGroupInvite>(
+// Schema for a pending membership action
+const GroupPendingSchema = new Schema<IGroupPending>(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    origin: { type: String, enum: ['invite', 'request'], required: true },
     status: { type: String, enum: ['pending', 'accepted', 'declined'], default: 'pending' },
-    invitedAt: { type: Date, default: Date.now },
+    createdAt: { type: Date, default: Date.now },
   },
   { _id: false },
 );
@@ -73,7 +77,7 @@ const groupSchema = new Schema<IGroup>(
     status: { type: String, enum: ['planned', 'active', 'completed'], default: 'planned' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     members: [GroupMemberSchema],
-    invites: [GroupInviteSchema],
+    pending: [GroupPendingSchema],
     scheduledStart: { type: Date },
     scheduledEnd: { type: Date },
     meetingPoint: { type: String },
