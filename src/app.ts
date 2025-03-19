@@ -25,6 +25,7 @@ import adminRoutes from './routes/admin';
 
 import './firebaseAdmin';
 import tripRoutes from './routes/tripRoutes';
+import groupRoutes from './routes/groupRoutes';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
@@ -59,7 +60,7 @@ mongoose
     app.use('/api/friend', friendsRoutes); //action on users (check status, add, remove, cancel request)
     app.use('/api/admin', adminRoutes); //action on users (check status, add, remove, cancel request)
     app.use('/api/trips', tripRoutes); //action on users (check status, add, remove, cancel request)
-    app.use('/api/group', tripRoutes); //action on users (check status, add, remove, cancel request)
+    app.use('/api/group', groupRoutes); //action on users (check status, add, remove, cancel request)
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
