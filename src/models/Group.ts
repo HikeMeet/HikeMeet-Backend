@@ -6,15 +6,15 @@ import mongoose, { Document, Model, Schema, model } from 'mongoose';
 export interface IGroupMember {
   user: mongoose.Schema.Types.ObjectId;
   role: 'admin' | 'companion';
-  joinedAt: Date;
+  joined_at: Date;
 }
 
 // Interface for a pending membership action (invitation or join request)
 export interface IGroupPending {
   user: mongoose.Schema.Types.ObjectId;
-  origin: 'invite' | 'request'; // 'invite' when admin sends an invite; 'request' when a user requests to join
+  origin: 'invite' | 'request';
   status: 'pending' | 'accepted' | 'declined';
-  createdAt: Date;
+  created_at: Date;
 }
 
 /* Main Group Interface */
@@ -22,21 +22,21 @@ export interface IGroupPending {
 export interface IGroup extends Document {
   name: string;
   trip: mongoose.Schema.Types.ObjectId;
-  maxMembers: number;
+  max_members: number;
   privacy: 'public' | 'private';
   difficulty?: string;
   description?: string;
   status: 'planned' | 'active' | 'completed';
-  createdBy: mongoose.Schema.Types.ObjectId;
+  created_by: mongoose.Schema.Types.ObjectId;
   members: IGroupMember[];
-  pending: IGroupPending[]; // unified list for invites and join requests
-  scheduledStart?: Date;
-  scheduledEnd?: Date;
-  meetingPoint?: string;
-  embarkedAt?: Date;
-  chatRoomId?: mongoose.Schema.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
+  pending: IGroupPending[];
+  scheduled_start?: Date;
+  scheduled_end?: Date;
+  meeting_point?: string;
+  embarked_at?: Date;
+  chat_room_id?: mongoose.Schema.Types.ObjectId;
+  created_at: Date;
+  updated_at: Date;
 }
 
 type IGroupModel = Model<IGroup>;
@@ -48,7 +48,7 @@ const GroupMemberSchema = new Schema<IGroupMember>(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     role: { type: String, enum: ['admin', 'companion'], default: 'companion' },
-    joinedAt: { type: Date, default: Date.now },
+    joined_at: { type: Date, default: Date.now },
   },
   { _id: false },
 );
@@ -59,7 +59,7 @@ const GroupPendingSchema = new Schema<IGroupPending>(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     origin: { type: String, enum: ['invite', 'request'], required: true },
     status: { type: String, enum: ['pending', 'accepted', 'declined'], default: 'pending' },
-    createdAt: { type: Date, default: Date.now },
+    created_at: { type: Date, default: Date.now },
   },
   { _id: false },
 );
@@ -70,21 +70,21 @@ const groupSchema = new Schema<IGroup>(
   {
     name: { type: String, required: true },
     trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
-    maxMembers: { type: Number, required: true },
+    max_members: { type: Number, required: true },
     privacy: { type: String, enum: ['public', 'private'], default: 'public' },
     difficulty: { type: String },
     description: { type: String },
     status: { type: String, enum: ['planned', 'active', 'completed'], default: 'planned' },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     members: [GroupMemberSchema],
     pending: [GroupPendingSchema],
-    scheduledStart: { type: Date },
-    scheduledEnd: { type: Date },
-    meetingPoint: { type: String },
-    embarkedAt: { type: Date },
-    chatRoomId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom' },
+    scheduled_start: { type: Date },
+    scheduled_end: { type: Date },
+    meeting_point: { type: String },
+    embarked_at: { type: Date },
+    chat_room_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom' },
   },
-  { timestamps: true },
+  { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
 );
 
 export const Group: IGroupModel = model<IGroup, IGroupModel>('Group', groupSchema);

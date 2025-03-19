@@ -74,6 +74,7 @@ const userSchema = new Schema({
 });
 
 // Mongoose Middleware: Cleanup friend references after a user is deleted
+// TODO: need to think what to do about Group creator field when deleting user
 userSchema.post('findOneAndDelete', async function (this: any, deletedDoc, next) {
   if (deletedDoc) {
     try {
