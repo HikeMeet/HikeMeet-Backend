@@ -9,11 +9,11 @@ const router = express.Router();
 // POST /create - Create a new group
 router.post('/create', async (req: Request, res: Response) => {
   try {
-    const { name, trip, maxMembers, privacy, difficulty, description, createdBy, scheduledStart, scheduledEnd, meetingPoint } = req.body;
+    const { name, trip, max_members, privacy, difficulty, description, created_by, scheduled_start, scheduledEnd, meeting_point } = req.body;
 
     // Validate required fields
-    if (!name || !trip || !maxMembers || !createdBy) {
-      return res.status(400).json({ error: 'Missing required fields: name, trip, maxMembers, createdBy' });
+    if (!name || !trip || !max_members || !created_by) {
+      return res.status(400).json({ error: 'Missing required fields: name, trip, max_members, created_by' });
     }
 
     // Check if the trip exists
@@ -30,9 +30,9 @@ router.post('/create', async (req: Request, res: Response) => {
     // Automatically add the creator as an admin member
     const initialMembers = [
       {
-        user: createdBy,
+        user: created_by,
         role: 'admin',
-        joinedAt: new Date(),
+        joined_at: new Date(),
       },
     ];
 
@@ -40,16 +40,16 @@ router.post('/create', async (req: Request, res: Response) => {
     const newGroup = new Group({
       name,
       trip,
-      maxMembers,
+      max_members,
       privacy,
       difficulty,
       description,
-      createdBy,
+      created_by,
       members: initialMembers,
       pending: [], // pending list is initially empty
-      scheduledStart,
+      scheduled_start,
       scheduledEnd,
-      meetingPoint,
+      meeting_point,
     });
 
     const savedGroup = await newGroup.save();
@@ -110,7 +110,7 @@ router.post('/:groupId/invite/:userId', async (req: Request, res: Response) => {
       user: userObjectId,
       origin: 'invite',
       status: 'pending',
-      createdAt: new Date(),
+      created_at: new Date(),
     });
 
     const updatedGroup = await group.save();
@@ -212,7 +212,7 @@ router.post('/:groupId/accept-invite/:userId', async (req: Request, res: Respons
       group.members.push({
         user: userObjectId,
         role: 'companion',
-        joinedAt: new Date(),
+        joined_at: new Date(),
       });
     }
 
@@ -255,7 +255,7 @@ router.post('/:groupId/join/:userid', async (req: Request, res: Response) => {
       group.members.push({
         user: userObjectId,
         role: 'companion',
-        joinedAt: new Date(),
+        joined_at: new Date(),
       });
       await group.save();
       return res.status(200).json({ message: 'User added to group', group });
@@ -265,7 +265,7 @@ router.post('/:groupId/join/:userid', async (req: Request, res: Response) => {
         user: userObjectId,
         origin: 'request',
         status: 'pending',
-        createdAt: new Date(),
+        created_at: new Date(),
       });
       await group.save();
       return res.status(200).json({ message: 'Join request sent. Awaiting approval.', group });
@@ -340,7 +340,7 @@ router.post('/:groupId/approve-join/:userId', async (req: Request, res: Response
       group.members.push({
         user: userObjectId,
         role: 'companion',
-        joinedAt: new Date(),
+        joined_at: new Date(),
       });
     }
 
