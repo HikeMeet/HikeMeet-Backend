@@ -86,6 +86,25 @@ router.post('/insert', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/user/list-by-ids?ids=id1,id2,id3
+router.get('/list-by-ids', async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.query;
+    if (!ids) {
+      return res.status(400).json({ error: 'No ids provided' });
+    }
+
+    // Convert the comma-separated string to an array of strings.
+    const idsArray = typeof ids === 'string' ? ids.split(',') : [];
+
+    const users = await User.find({ _id: { $in: idsArray } });
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return res.status(500).json({ error: 'Internal Server Error', details: error });
+  }
+});
+
 // GET /:mongoId - Get a user by ID or Firebase ID
 router.get('/:mongoId', async (req: Request, res: Response) => {
   try {

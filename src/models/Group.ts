@@ -33,7 +33,7 @@ export interface IGroup extends Document {
   scheduled_start?: Date;
   scheduled_end?: Date;
   meeting_point?: string;
-  embarked_at?: string;
+  embarked_at: string;
   chat_room_id?: mongoose.Schema.Types.ObjectId;
   created_at: Date;
   updated_at: Date;
