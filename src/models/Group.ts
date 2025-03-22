@@ -24,7 +24,7 @@ export interface IGroup extends Document {
   trip: mongoose.Schema.Types.ObjectId;
   max_members: number;
   privacy: 'public' | 'private';
-  difficulty?: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'hardcore';
   description?: string;
   status: 'planned' | 'active' | 'completed';
   created_by: mongoose.Schema.Types.ObjectId;
@@ -33,7 +33,7 @@ export interface IGroup extends Document {
   scheduled_start?: Date;
   scheduled_end?: Date;
   meeting_point?: string;
-  embarked_at?: Date;
+  embarked_at?: string;
   chat_room_id?: mongoose.Schema.Types.ObjectId;
   created_at: Date;
   updated_at: Date;
@@ -72,7 +72,10 @@ const groupSchema = new Schema<IGroup>(
     trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
     max_members: { type: Number, required: true },
     privacy: { type: String, enum: ['public', 'private'], default: 'public' },
-    difficulty: { type: String },
+    difficulty: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced', 'hardcore'],
+    },
     description: { type: String },
     status: { type: String, enum: ['planned', 'active', 'completed'], default: 'planned' },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -81,7 +84,7 @@ const groupSchema = new Schema<IGroup>(
     scheduled_start: { type: Date },
     scheduled_end: { type: Date },
     meeting_point: { type: String },
-    embarked_at: { type: Date },
+    embarked_at: { type: String, match: /^([01]\d|2[0-3]):([0-5]\d)$/ }, // Optional regex to ensure HH:mm
     chat_room_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom' },
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },

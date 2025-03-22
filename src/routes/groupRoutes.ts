@@ -680,4 +680,62 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+router.delete('/:id/delete', async (req: Request, res: Response) => {
+  try {
+    const groupId = req.params.id;
+    const { deleted_by } = req.body; // The ID of the user attempting to delete the group
+
+    // Validate that deleted_by is provided and is a valid ObjectId.
+    if (!deleted_by || !mongoose.Types.ObjectId.isValid(deleted_by)) {
+      return res.status(400).json({ error: 'Missing or invalid deleted_by field' });
+    }
+
+    // Find the group by its ID.
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Only the group creator (created_by) can delete the group.
+    if (group.created_by.toString() !== deleted_by) {
+      return res.status(403).json({ error: 'Only the group creator can delete the group' });
+    }
+
+    // Store all member IDs for later notifications.
+    const memberIds = group.members.map((member) => member.user.toString());
+
+    // Delete the group.
+    const deletedGroup = await Group.findByIdAndDelete(groupId);
+    if (!deletedGroup) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Optionally, remove any notifications related to this group.
+    await Notification.deleteMany({ group: group._id });
+
+    // Fetch the group creator's details (for notification message)
+    const creator = await User.findById(deleted_by);
+    const creatorName = creator ? creator.username : 'The group creator';
+
+    // Notify all group members (except the creator) that the group has been deleted.
+    for (const memberId of memberIds) {
+      if (memberId !== deleted_by) {
+        const notification = new Notification({
+          user: new mongoose.Types.ObjectId(memberId),
+          type: 'group_deleted',
+          group: group._id,
+          message: `The group "${group.name}" has been deleted by ${creatorName}.`,
+          user_triggered: new mongoose.Types.ObjectId(deleted_by),
+        });
+        await notification.save();
+      }
+    }
+
+    return res.status(200).json({ message: 'Group deleted successfully', group: deletedGroup });
+  } catch (err) {
+    console.error('Error deleting group:', err);
+    return res.status(500).json({ error: 'Internal Server Error', details: err });
+  }
+});
+
 export default router;
