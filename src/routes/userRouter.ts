@@ -1,31 +1,9 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
-import { v2 as cloudinary } from 'cloudinary';
-import multer from 'multer';
 import mongoose from 'mongoose';
-import { removeOldImage } from '../utils/cloudinaryHelper';
+import { removeOldImage, DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL, streamUploadProfileImage, upload } from '../utils/cloudinaryHelper';
 
 const router = express.Router();
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-const streamUpload = (buffer: Buffer): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ folder: 'profile_images' }, (error: any, result: any) => {
-      if (result) resolve(result);
-      else reject(error);
-    });
-    stream.end(buffer);
-  });
-};
-const DEFAULT_IMAGE_ID = 'profile_images/tpyngwygeoykeur0hgre';
-const DEFAULT_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1742156351/profile_images/tpyngwygeoykeur0hgre.jpg';
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 // POST /insert route
 router.post('/insert', async (req: Request, res: Response) => {
@@ -80,8 +58,8 @@ router.post('/insert', async (req: Request, res: Response) => {
       gender: gender || '',
       birth_date: birth_date || '',
       profile_picture: {
-        url: DEFAULT_IMAGE_URL,
-        image_id: DEFAULT_IMAGE_ID,
+        url: DEFAULT_PROFILE_IMAGE_URL,
+        image_id: DEFAULT_PROFILE_IMAGE_ID,
       },
       bio: bio || '',
       facebook_link: facebook_link || '',
@@ -180,7 +158,7 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     }
 
     // Remove the profile picture from Cloudinary if it exists and is not the default image.
-    await removeOldImage(deletedUser.profile_picture?.image_id, DEFAULT_IMAGE_ID);
+    await removeOldImage(deletedUser.profile_picture?.image_id, DEFAULT_PROFILE_IMAGE_ID);
 
     res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
   } catch (error) {
@@ -209,7 +187,7 @@ router.post('/:id/upload-profile-picture', upload.single('image'), async (req: R
     }
 
     // Upload new image file to Cloudinary.
-    const result = await streamUpload(req.file.buffer);
+    const result = await streamUploadProfileImage(req.file.buffer);
     if (!result.secure_url || !result.public_id) {
       return res.status(500).json({ error: 'Failed to upload image to Cloudinary' });
     }
@@ -228,7 +206,7 @@ router.post('/:id/upload-profile-picture', upload.single('image'), async (req: R
     await user.save();
 
     // If an old image exists, delete it from Cloudinary.
-    await removeOldImage(oldImageId, DEFAULT_IMAGE_ID);
+    await removeOldImage(oldImageId, DEFAULT_PROFILE_IMAGE_ID);
 
     res.status(200).json(user);
   } catch (error: any) {
@@ -236,4 +214,38 @@ router.post('/:id/upload-profile-picture', upload.single('image'), async (req: R
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+router.delete('/:id/delete-profile-picture', async (req: Request, res: Response) => {
+  try {
+    const userId: string = req.params.id;
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Save the current image id to delete if necessary
+    const oldImageId = user.profile_picture?.image_id;
+
+    // Update the user's profile_picture to the default values
+    user.profile_picture = {
+      url: DEFAULT_PROFILE_IMAGE_URL,
+      image_id: DEFAULT_PROFILE_IMAGE_ID,
+    };
+    user.updated_on = new Date();
+    await user.save();
+
+    // Delete the old image from Cloudinary if it exists and isn't the default one
+    if (oldImageId && oldImageId !== DEFAULT_PROFILE_IMAGE_ID) {
+      await removeOldImage(oldImageId, DEFAULT_PROFILE_IMAGE_ID);
+    }
+
+    res.status(200).json(user);
+  } catch (error: any) {
+    console.error('Error deleting profile picture:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 export default router;

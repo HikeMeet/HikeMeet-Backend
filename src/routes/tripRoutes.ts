@@ -2,13 +2,21 @@ import express, { Request, Response } from 'express';
 import { Trip } from '../models/Trip'; // Adjust the path if needed
 import { ArchivedTrip } from '../models/ArchiveTrip'; // Adjust the path if needed
 import mongoose from 'mongoose';
+import {
+  DEFAULT_TRIP_IMAGE_URL,
+  DEFAULT_TRIP_IMAGE_ID,
+  upload,
+  streamUploadTripImage,
+  removeOldImage,
+  uploadMultipleTripImages,
+} from '../utils/cloudinaryHelper';
 
 const router = express.Router();
-
+const MAX_IMAGE_COUNT = 5;
 // POST /trips/create - Create a new trip
 router.post('/create', async (req: Request, res: Response) => {
   try {
-    const { name, location, description, images, tags, createdBy } = req.body;
+    const { name, location, description, tags, createdBy } = req.body;
 
     // Basic validation for required fields
     if (!name || !location || !location.address || !location.coordinates || !createdBy) {
@@ -20,7 +28,10 @@ router.post('/create', async (req: Request, res: Response) => {
       name,
       location,
       description,
-      images,
+      main_image: {
+        url: DEFAULT_TRIP_IMAGE_URL,
+        image_id: DEFAULT_TRIP_IMAGE_ID,
+      },
       tags,
       createdBy,
     });
@@ -43,6 +54,133 @@ router.get('/all', async (_req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error fetching trips:', error);
     return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /:id/upload-profile-picture
+// This endpoint receives an image file, uploads it to Cloudinary, updates the user in MongoDB,
+// and then deletes the old image from Cloudinary. If any step fails, all changes are rolled back.
+router.post('/:id/upload-profile-picture', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const tripId: string = req.params.id;
+
+    // First, get the current user from MongoDB to retrieve the current image id.
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ error: 'trip not found' });
+    }
+
+    const oldImageId = trip.main_image?.image_id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Upload new image file to Cloudinary.
+    const result = await streamUploadTripImage(req.file.buffer);
+    if (!result.secure_url || !result.public_id) {
+      return res.status(500).json({ error: 'Failed to upload image to Cloudinary' });
+    }
+
+    // Log the new image ID and URL.
+    console.log('old image ID:', oldImageId);
+    console.log('New uploaded image ID:', result.public_id);
+    console.log('New uploaded image URL:', result.secure_url);
+
+    // Update the trip's main_image in MongoDB.
+    trip.main_image = {
+      url: result.secure_url,
+      image_id: result.public_id,
+    };
+    trip.updatedAt = new Date();
+    await trip.save();
+
+    // If an old image exists, delete it from Cloudinary.
+    await removeOldImage(oldImageId, DEFAULT_TRIP_IMAGE_ID);
+
+    res.status(200).json(trip);
+  } catch (error: any) {
+    console.error('Error uploading profile picture:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+router.post('/:id/upload-trip-images', upload.array('images', MAX_IMAGE_COUNT), async (req: Request, res: Response) => {
+  try {
+    const tripId: string = req.params.id;
+
+    // Find the trip by ID
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+
+    // Check if files are provided
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({ error: 'No image files provided' });
+    }
+
+    // Check if adding these images would exceed 5 photos
+    const existingImagesCount = trip.images ? trip.images.length : 0;
+    const newUploadsCount = req.files.length;
+    if (existingImagesCount + newUploadsCount > MAX_IMAGE_COUNT) {
+      return res.status(400).json({ error: `Cannot upload more than ${MAX_IMAGE_COUNT} photos to a trip` });
+    }
+
+    // Extract buffers from each uploaded file
+    const buffers: Buffer[] = req.files.map((file: Express.Multer.File) => file.buffer);
+
+    // Upload all images to Cloudinary
+    const uploadResults = await uploadMultipleTripImages(buffers);
+
+    // Create new image objects from the upload results
+    const newImages = uploadResults.map((result) => ({
+      url: result.secure_url,
+      image_id: result.public_id,
+    }));
+
+    // Append the new images to the trip's images array
+    trip.images = trip.images ? [...trip.images, ...newImages] : newImages;
+
+    // Save the updated trip document
+    await trip.save();
+
+    res.status(200).json(trip);
+  } catch (error: any) {
+    console.error('Error uploading trip images:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+router.delete('/:id/delete-profile-picture', async (req: Request, res: Response) => {
+  try {
+    const tripId: string = req.params.id;
+
+    // Find the user by ID
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ error: 'trip not found' });
+    }
+
+    // Save the current image id to delete if necessary
+    const oldImageId = trip.main_image?.image_id;
+
+    // Update the trip's main_image to the default values
+    trip.main_image = {
+      url: DEFAULT_TRIP_IMAGE_URL,
+      image_id: DEFAULT_TRIP_IMAGE_ID,
+    };
+    trip.updatedAt = new Date();
+    await trip.save();
+
+    // Delete the old image from Cloudinary if it exists and isn't the default one
+    if (oldImageId && oldImageId !== DEFAULT_TRIP_IMAGE_ID) {
+      await removeOldImage(oldImageId, DEFAULT_TRIP_IMAGE_ID);
+    }
+
+    res.status(200).json(trip);
+  } catch (error: any) {
+    console.error('Error deleting profile picture:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
