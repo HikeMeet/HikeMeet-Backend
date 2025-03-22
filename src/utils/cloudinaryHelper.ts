@@ -54,7 +54,7 @@ const DEFAULT_PROFILE_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/up
 const DEFAULT_TRIP_IMAGE_ID = 'trip_images/pxn2u29twifmjcjq7whv';
 const DEFAULT_TRIP_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1742664563/trip_images/pxn2u29twifmjcjq7whv.png';
 
-async function removeOldImage(oldImageId: string | undefined, defaultImageId: string): Promise<void> {
+async function removeOldImage(oldImageId: string | undefined, defaultImageId?: string): Promise<void> {
   if (oldImageId && oldImageId !== defaultImageId) {
     const deletionResult: any = await cloudinary.uploader.destroy(oldImageId);
     if (deletionResult.result !== 'ok') {

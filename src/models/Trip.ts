@@ -41,7 +41,7 @@ const tripSchema = new Schema(
     description: { type: String },
     images: [ImageModalSchema],
     main_image: ImageModalSchema,
-    tags: [{ type: String }],
+    tags: [{ type: String, index: true }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true },

@@ -151,6 +151,41 @@ router.post('/:id/upload-trip-images', upload.array('images', MAX_IMAGE_COUNT), 
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+router.delete('/:id/delete-trip-images', async (req: Request, res: Response) => {
+  try {
+    const tripId: string = req.params.id;
+    const { imageIds } = req.body; // Expecting { imageIds: string[] }
+
+    if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
+      return res.status(400).json({ error: 'No image IDs provided' });
+    }
+
+    // Find the trip by ID
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+
+    // Filter the images to remove based on the provided image IDs
+    const imagesToRemove = trip.images?.filter((image) => imageIds.includes(image.image_id)) || [];
+
+    // Remove each image from Cloudinary
+    for (const image of imagesToRemove) {
+      await removeOldImage(image.image_id);
+    }
+
+    // Remove the images from the trip's images array
+    trip.images = trip.images?.filter((image) => !imageIds.includes(image.image_id));
+    await trip.save();
+
+    res.status(200).json(trip);
+  } catch (error: any) {
+    console.error('Error deleting trip images:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 router.delete('/:id/delete-profile-picture', async (req: Request, res: Response) => {
   try {
     const tripId: string = req.params.id;
