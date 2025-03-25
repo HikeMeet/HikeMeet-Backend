@@ -683,7 +683,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       }
       return res.status(200).json({ group, trip });
     }
-    return res.status(200).json(group);
+    return res.status(200).json({ group });
   } catch (err) {
     console.error('Error getting group by ID:', err);
     return res.status(500).json({ error: 'Internal Server Error', details: err });
