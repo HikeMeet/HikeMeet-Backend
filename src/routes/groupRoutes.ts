@@ -11,7 +11,8 @@ const router = express.Router();
 router.post('/create', async (req: Request, res: Response) => {
   try {
     console.log('Request Body:', req.body);
-    const { name, trip, max_members, privacy, difficulty, description, created_by, scheduled_start, scheduled_end, meeting_point } = req.body;
+    const { name, trip, max_members, privacy, embarked_at, difficulty, description, created_by, scheduled_start, scheduled_end, meeting_point } =
+      req.body;
 
     // Validate required fields
     if (!name || !trip || !max_members || !created_by) {
@@ -59,6 +60,7 @@ router.post('/create', async (req: Request, res: Response) => {
       scheduled_start,
       scheduled_end,
       meeting_point: effective_meeting_point,
+      embarked_at,
       created_on: new Date(),
       updated_on: new Date(),
     });
@@ -669,11 +671,19 @@ router.get('/list', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { getTrip } = req.query;
     const group = await Group.findById(id);
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
-    return res.status(200).json(group);
+    if (getTrip && getTrip === 'true') {
+      const trip = await Trip.findById(group.trip);
+      if (!trip) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      return res.status(200).json({ group, trip });
+    }
+    return res.status(200).json({ group });
   } catch (err) {
     console.error('Error getting group by ID:', err);
     return res.status(500).json({ error: 'Internal Server Error', details: err });
