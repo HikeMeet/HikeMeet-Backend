@@ -1,37 +1,24 @@
-// import { Group } from 'src/models/Group';
-// import * as cron from 'node-cron';
+import cron from 'node-cron';
+import { Group } from '../models/Group'; // adjust the path as needed
 
-// const parseHHMMToDate = (timeStr: string): Date => {
-//   const [hours, minutes] = timeStr.split(':').map(Number);
-//   const now = new Date();
-//   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-// };
-// // Schedule a job to run every minute. Adjust the schedule as needed.
-// cron.schedule('* * * * *', async () => {
-//   const now = new Date();
-//   try {
-//     // Update groups that should become active.
-//     await Group.updateMany(
-//       {
-//         status: 'planned',
-//         $or: [
-//           { scheduled_start: { $lte: now } },
-//           { embarked_at: { $lte: now } }, // Ensure embarked_at is stored as a date
-//         ],
-//       },
-//       { $set: { status: 'active' } },
-//     );
+// Run the cron job every 10 seconds
+cron.schedule(' * * * * *', async () => {
+  const now = new Date();
 
-//     // Update groups that should become completed.
-//     await Group.updateMany(
-//       {
-//         status: 'active',
-//         scheduled_end: { $lte: now },
-//       },
-//       { $set: { status: 'completed' } },
-//     );
-//     console.log('Cron job executed: group statuses updated at', now);
-//   } catch (error) {
-//     console.error('Cron job error updating group statuses:', error);
-//   }
-// });
+  // Manually adjust the time by adding 2 hours (for example)
+  const adjustedTime = new Date(now);
+  adjustedTime.setUTCHours(now.getUTCHours() + 2);
+  console.log(`Adjusted time: ${adjustedTime}`);
+
+  try {
+    // Change groups from "planned" to "active" if scheduled_start time has arrived
+    const activateResult = await Group.updateMany({ status: 'planned', scheduled_start: { $lte: adjustedTime } }, { $set: { status: 'active' } });
+    console.log(`Activated ${activateResult.modifiedCount} groups`);
+
+    // Change groups from "active" to "completed" if scheduled_end time has arrived
+    const completeResult = await Group.updateMany({ status: 'active', scheduled_end: { $lte: adjustedTime } }, { $set: { status: 'completed' } });
+    console.log(`Completed ${completeResult.modifiedCount} groups`);
+  } catch (error) {
+    console.error('Error updating group statuses:', error);
+  }
+});

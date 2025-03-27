@@ -17,6 +17,7 @@ router.post('/create', async (req: Request, res: Response) => {
       max_members,
       privacy,
       embarked_at, // expected to be in "HH:mm" format
+      finish_time, // expected to be in "HH:mm" format
       difficulty,
       description,
       created_by,
@@ -67,6 +68,14 @@ router.post('/create', async (req: Request, res: Response) => {
       }
       finalScheduledStart.setUTCHours(hours, minutes, 0, 0);
     }
+    let finalScheduledEns = scheduled_start ? new Date(scheduled_end) : undefined;
+    if (finish_time && finalScheduledEns) {
+      const [hours, minutes] = finish_time.split(':').map(Number);
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        throw new Error('Invalid finish_time time format. Expected HH:mm with HH between 00 and 23, and mm between 00 and 59.');
+      }
+      finalScheduledEns.setUTCHours(hours, minutes, 0, 0);
+    }
 
     // Create a new group instance (note: embarked_at is no longer stored)
     const new_group = new Group({
@@ -80,7 +89,7 @@ router.post('/create', async (req: Request, res: Response) => {
       members: initial_members,
       pending: [], // pending list is initially empty
       scheduled_start: finalScheduledStart,
-      scheduled_end, // remain as provided
+      scheduled_end: finalScheduledEns, // remain as provided
       meeting_point: effective_meeting_point,
       created_at: new Date(),
       updated_at: new Date(),
@@ -118,6 +127,7 @@ router.post('/:id/update', async (req: Request, res: Response) => {
       'scheduled_start',
       'scheduled_end',
       'meeting_point',
+      'finish_time',
       'embarked_at', // temporarily allowed to do our conversion
       'chat_room_id',
     ];
@@ -171,6 +181,29 @@ router.post('/:id/update', async (req: Request, res: Response) => {
       }
       // Remove embarked_at from updateData since it no longer exists in the schema.
       delete updateData.embarked_at;
+    }
+    if (updateData.finish_time) {
+      // Determine the base date to use for scheduled_start:
+      // if updateData.scheduled_start is provided, use that;
+      // otherwise, use the group's current scheduled_start.
+      const baseDate = updateData.scheduled_end ? new Date(updateData.scheduled_end) : group.scheduled_end ? new Date(group.scheduled_end) : null;
+      if (baseDate) {
+        // Assume updateData.finish_time is in "HH:mm" format.
+        const [hoursStr, minutesStr] = updateData.finish_time.split(':');
+        const hours = parseInt(hoursStr, 10);
+        const minutes = parseInt(minutesStr, 10);
+        // Validate that hours and minutes are within the expected range.
+        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+          return res.status(400).json({
+            error: 'Invalid finish_time time format. Expected HH:mm with HH between 0 and 23 and MM between 0 and 59.',
+          });
+        }
+        // Use setUTCHours so that the time is set in UTC without local timezone offset.
+        baseDate.setUTCHours(hours, minutes, 0, 0);
+        updateData.scheduled_end = baseDate.toISOString();
+      }
+      // Remove embarked_at from updateData since it no longer exists in the schema.
+      delete updateData.finish_time;
     }
     // Proceed to update the group.
     const updatedGroup = await Group.findByIdAndUpdate(groupId, updateData, { new: true });
