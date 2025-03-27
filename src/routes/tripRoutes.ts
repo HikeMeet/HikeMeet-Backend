@@ -46,6 +46,38 @@ router.post('/create', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/trips/list-by-ids?ids=id1,id2,id3
+router.get('/list-by-ids', async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.query;
+    if (!ids) {
+      return res.status(400).json({ error: 'No ids provided' });
+    }
+
+    // Convert the comma-separated string to an array of strings.
+    const idsArray = typeof ids === 'string' ? ids.split(',') : [];
+
+    // Query for trips. If Trip is properly typed, you can cast the result.
+    const trips = await Trip.find({ _id: { $in: idsArray } });
+
+    // Create a mapping from trip _id to trip object.
+    const tripMap: { [key: string]: any } = {};
+    trips.forEach((trip) => {
+      // Cast trip._id to any so we can call toString() on it.
+      const idStr = (trip._id as any).toString();
+      tripMap[idStr] = trip;
+    });
+
+    // Map over the original idsArray to create a result array that preserves duplicates and order.
+    const result = idsArray.map((id) => tripMap[id]).filter((trip) => trip);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error fetching trips:', error);
+    return res.status(500).json({ error: 'Internal Server Error', details: error });
+  }
+});
+
 // GET /api/trips/all - Retrieve all trips
 router.get('/all', async (_req: Request, res: Response) => {
   try {
