@@ -1,5 +1,15 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
-
+export interface ITripHistoryEntry {
+  trip: mongoose.Schema.Types.ObjectId;
+  completed_at: Date;
+}
+const tripHistorySchema = new Schema<ITripHistoryEntry>(
+  {
+    trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
+    completed_at: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
 export interface IUser extends Document {
   username: string;
   email: string;
@@ -26,6 +36,7 @@ export interface IUser extends Document {
     status?: 'request_sent' | 'request_received' | 'accepted' | 'blocked';
     id?: mongoose.Schema.Types.ObjectId;
   }[];
+  trip_history: ITripHistoryEntry[];
   firebase_id: string;
   created_on: Date;
   updated_on: Date;
@@ -68,6 +79,7 @@ const userSchema = new Schema({
       _id: false, //cancel _id automatic (its was problem)
     },
   ],
+  trip_history: [tripHistorySchema],
   firebase_id: { type: String },
   created_on: { type: Date, required: true, default: Date.now },
   updated_on: { type: Date, required: true, default: Date.now },
