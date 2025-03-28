@@ -52,8 +52,8 @@ const userSchema = new Schema({
   gender: { type: String },
   birth_date: { type: Date },
   profile_picture: {
-    url: { type: String },
-    image_id: { type: String },
+    url: { type: String, required: true },
+    image_id: { type: String, required: true },
   },
   bio: { type: String },
   facebook_link: { type: String },

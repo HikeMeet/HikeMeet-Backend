@@ -9,7 +9,6 @@ cron.schedule('* * * * *', async () => {
   // Manually adjust the time by adding 2 hours (for example)
   const adjustedTime = new Date(now);
   adjustedTime.setUTCHours(now.getUTCHours() + 2);
-  console.log(`Adjusted time: ${adjustedTime}`);
 
   try {
     // Change groups from "planned" to "active" if scheduled_start time has arrived

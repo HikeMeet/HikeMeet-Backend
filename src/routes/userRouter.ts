@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
 import mongoose from 'mongoose';
-import { removeOldImage, DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL, streamUploadProfileImage, upload } from '../utils/cloudinaryHelper';
+import { removeOldImage, DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL, upload } from '../helpers/cloudinaryHelper';
+import { uploadProfilePictureGeneric } from '../helpers/imagesHelper';
 
 const router = express.Router();
 
@@ -193,41 +194,22 @@ router.post('/:id/upload-profile-picture', upload.single('image'), async (req: R
   try {
     const userId: string = req.params.id;
 
-    // First, get the current user from MongoDB to retrieve the current image id.
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const oldImageId = user.profile_picture?.image_id;
-
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Upload new image file to Cloudinary.
-    const result = await streamUploadProfileImage(req.file.buffer);
-    if (!result.secure_url || !result.public_id) {
-      return res.status(500).json({ error: 'Failed to upload image to Cloudinary' });
-    }
+    const updatedUser = await uploadProfilePictureGeneric(
+      User,
+      userId,
+      req.file.buffer,
+      removeOldImage, // Function to remove old image
+      DEFAULT_PROFILE_IMAGE_ID, // Default profile image ID
+      'updated_on', // Field name for timestamp in User model
+      'profile_picture', // Field name for profile picture in User model
+      'profile_images', // Folder name for profile images
+    );
 
-    // Log the new image ID and URL.
-    console.log('old image ID:', oldImageId);
-    console.log('New uploaded image ID:', result.public_id);
-    console.log('New uploaded image URL:', result.secure_url);
-
-    // Update the user's profile_picture in MongoDB.
-    user.profile_picture = {
-      url: result.secure_url,
-      image_id: result.public_id,
-    };
-    user.updated_on = new Date();
-    await user.save();
-
-    // If an old image exists, delete it from Cloudinary.
-    await removeOldImage(oldImageId, DEFAULT_PROFILE_IMAGE_ID);
-
-    res.status(200).json(user);
+    res.status(200).json(updatedUser);
   } catch (error: any) {
     console.error('Error uploading profile picture:', error);
     res.status(500).json({ error: 'Internal Server Error' });
