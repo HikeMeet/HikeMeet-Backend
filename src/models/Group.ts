@@ -1,7 +1,14 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
+import { IImageModel } from './Trip';
 
 /* Embedded Interfaces */
-
+const ImageModalSchema = new Schema<IImageModel>(
+  {
+    url: { type: String },
+    image_id: { type: String },
+  },
+  { _id: false },
+);
 // Interface for a group member
 export interface IGroupMember {
   user: mongoose.Schema.Types.ObjectId;
@@ -33,6 +40,8 @@ export interface IGroup extends Document {
   scheduled_start?: Date;
   scheduled_end?: Date;
   meeting_point?: string;
+  images?: IImageModel[];
+  main_image?: IImageModel;
   chat_room_id?: mongoose.Schema.Types.ObjectId;
   created_at: Date;
   updated_at: Date;
@@ -83,6 +92,8 @@ const groupSchema = new Schema<IGroup>(
     scheduled_start: { type: Date },
     scheduled_end: { type: Date },
     meeting_point: { type: String },
+    images: [ImageModalSchema],
+    main_image: ImageModalSchema,
     chat_room_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom' },
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
