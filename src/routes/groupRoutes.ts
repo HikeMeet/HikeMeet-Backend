@@ -93,6 +93,10 @@ router.post('/create', async (req: Request, res: Response) => {
       scheduled_start: finalScheduledStart,
       scheduled_end: finalScheduledEns, // remain as provided
       meeting_point: effective_meeting_point,
+      main_image: {
+        url: DEFAULT_GROUP_IMAGE_URL,
+        image_id: DEFAULT_GROUP_IMAGE_ID,
+      },
       created_at: new Date(),
       updated_at: new Date(),
     });

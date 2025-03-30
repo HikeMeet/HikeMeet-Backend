@@ -3,13 +3,13 @@ import { Group } from '../models/Group'; // adjust the path as needed
 import { User } from '../models/User';
 
 // Run the cron job every 10 seconds
-cron.schedule('* * * * *', async () => {
+cron.schedule(' */10 * * * * *', async () => {
   const now = new Date();
 
   // Manually adjust the time by adding 2 hours (for example)
   const adjustedTime = new Date(now);
-  adjustedTime.setUTCHours(now.getUTCHours() + 2);
-
+  adjustedTime.setUTCHours(now.getUTCHours() + 3);
+  console.log(adjustedTime);
   try {
     // Change groups from "planned" to "active" if scheduled_start time has arrived
     const activateResult = await Group.updateMany({ status: 'planned', scheduled_start: { $lte: adjustedTime } }, { $set: { status: 'active' } });
