@@ -3,7 +3,7 @@ import { Group } from '../models/Group'; // adjust the path as needed
 import { User } from '../models/User';
 
 // Run the cron job every 10 seconds
-cron.schedule(' */10 * * * * *', async () => {
+cron.schedule(' * * * * *', async () => {
   const now = new Date();
 
   // Manually adjust the time by adding 2 hours (for example)
