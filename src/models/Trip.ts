@@ -3,6 +3,7 @@ import mongoose, { Document, Model, Schema, model } from 'mongoose';
 export interface IImageModel {
   url: string;
   image_id: string;
+  type: 'image' | 'video';
 }
 
 export interface ITrip extends Document {
@@ -24,6 +25,7 @@ export const ImageModalSchema = new Schema<IImageModel>(
   {
     url: { type: String },
     image_id: { type: String },
+    type: { type: String, enum: ['image', 'video'], required: true },
   },
   { _id: false },
 );
