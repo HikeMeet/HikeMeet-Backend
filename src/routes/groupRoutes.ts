@@ -93,6 +93,10 @@ router.post('/create', async (req: Request, res: Response) => {
       scheduled_start: finalScheduledStart,
       scheduled_end: finalScheduledEns, // remain as provided
       meeting_point: effective_meeting_point,
+      main_image: {
+        url: DEFAULT_GROUP_IMAGE_URL,
+        image_id: DEFAULT_GROUP_IMAGE_ID,
+      },
       created_at: new Date(),
       updated_at: new Date(),
     });
@@ -714,7 +718,7 @@ router.post('/:groupId/approve-join/:userId', async (req: Request, res: Response
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    // Check if the approving person is an admin
+    // Check if the approving d is an admin
     const isAdmin = group.members.some((member) => member.user.toString() === admin_id && member.role === 'admin');
     if (!isAdmin) {
       return res.status(403).json({ error: 'Only an admin can approve join requests' });
@@ -930,7 +934,10 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     if (!deletedGroup) {
       return res.status(404).json({ error: 'Group not found' });
     }
-
+    const imageId = group.main_image?.image_id;
+    if (imageId && imageId !== DEFAULT_GROUP_IMAGE_ID) {
+      await removeOldImage(imageId, DEFAULT_GROUP_IMAGE_ID);
+    }
     // Optionally, remove any notifications related to this group.
     await Notification.deleteMany({ group: group._id });
 
