@@ -206,6 +206,37 @@ router.delete('/:id/delete-profile-picture', async (req: Request, res: Response)
   }
 });
 
+router.delete('/:id/delete', async (req: Request, res: Response) => {
+  try {
+    const tripId = req.params.id;
+
+    // Find the group by its ID.
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Delete the group.
+    const deletedTrip = await Trip.findByIdAndDelete(tripId);
+    if (!deletedTrip) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+    const imageId = trip.main_image?.image_id;
+    if (imageId && imageId !== DEFAULT_TRIP_IMAGE_ID) {
+      await removeOldImage(imageId, DEFAULT_TRIP_IMAGE_ID);
+    }
+
+    for (const image of trip.images || []) {
+      await removeOldImage(image.image_id);
+    }
+    // Notify all group members (except the creator) that the group has been deleted.
+
+    return res.status(200).json({ message: 'Trip deleted successfully', trip: deletedTrip });
+  } catch (err) {
+    console.error('Error deleting group:', err);
+    return res.status(500).json({ error: 'Internal Server Error', details: err });
+  }
+});
 // GET /api/trips/:id - Retrieve a specific trip by its ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -315,6 +346,18 @@ router.post('/unarchive/:id', async (req: Request, res: Response) => {
 // DELETE /trips/archive/clear - Delete all archived trips
 router.delete('/archive/clear', async (_req: Request, res: Response) => {
   try {
+    const archivedTrips = await ArchivedTrip.find({});
+
+    for (const trip of archivedTrips) {
+      const imageId = trip.main_image?.image_id;
+      if (imageId && imageId !== DEFAULT_TRIP_IMAGE_ID) {
+        await removeOldImage(imageId, DEFAULT_TRIP_IMAGE_ID);
+      }
+
+      for (const image of trip.images || []) {
+        await removeOldImage(image.image_id);
+      }
+    }
     await ArchivedTrip.deleteMany({});
     res.status(200).json({ message: 'All archived trips cleared' });
   } catch (error: any) {
@@ -327,9 +370,21 @@ router.delete('/archive/clear', async (_req: Request, res: Response) => {
 router.delete('/archive/:id', async (req: Request, res: Response) => {
   try {
     const archivedTripId = req.params.id;
+    const trip = await ArchivedTrip.findById({ archivedTripId });
+    if (!trip) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
     const result = await ArchivedTrip.deleteOne({ _id: archivedTripId });
     if (result.deletedCount === 0) {
       return res.status(404).json({ message: 'Archived trip not found' });
+    }
+    const imageId = trip.main_image?.image_id;
+    if (imageId && imageId !== DEFAULT_TRIP_IMAGE_ID) {
+      await removeOldImage(imageId, DEFAULT_TRIP_IMAGE_ID);
+    }
+
+    for (const image of trip.images || []) {
+      await removeOldImage(image.image_id);
     }
     return res.status(200).json({ message: 'Archived trip deleted successfully' });
   } catch (error: any) {

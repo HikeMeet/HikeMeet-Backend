@@ -20,7 +20,7 @@ export interface ITrip extends Document {
   updatedAt: Date;
 }
 
-const ImageModalSchema = new Schema<IImageModel>(
+export const ImageModalSchema = new Schema<IImageModel>(
   {
     url: { type: String },
     image_id: { type: String },
