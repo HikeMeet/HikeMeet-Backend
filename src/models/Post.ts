@@ -1,15 +1,17 @@
 import mongoose, { Document, Schema, Model, model } from 'mongoose';
+import { IImageModel, ImageModalSchema } from './Trip';
 
 export interface IComment {
   user: mongoose.Schema.Types.ObjectId;
   text: string;
   created_at: Date;
+  liked_by?: mongoose.Schema.Types.ObjectId[];
 }
 
 export interface IPost extends Document {
   author: mongoose.Schema.Types.ObjectId;
   content?: string;
-  images?: { url: string; image_id: string }[];
+  images?: IImageModel[];
   attached_trip?: mongoose.Schema.Types.ObjectId;
   attached_group?: mongoose.Schema.Types.ObjectId;
   likes: mongoose.Schema.Types.ObjectId[];
@@ -26,18 +28,14 @@ const commentSchema = new Schema<IComment>({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   text: { type: String, required: true },
   created_at: { type: Date, default: Date.now },
+  liked_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
 });
 
 const postSchema = new Schema<IPost>(
   {
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     content: { type: String },
-    images: [
-      {
-        url: { type: String, required: true },
-        image_id: { type: String, required: true },
-      },
-    ],
+    images: [ImageModalSchema],
     attached_trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip' },
     attached_group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],

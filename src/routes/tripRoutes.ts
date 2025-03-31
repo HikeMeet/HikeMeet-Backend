@@ -190,6 +190,7 @@ router.delete('/:id/delete-profile-picture', async (req: Request, res: Response)
     trip.main_image = {
       url: DEFAULT_TRIP_IMAGE_URL,
       image_id: DEFAULT_TRIP_IMAGE_ID,
+      type: 'image',
     };
     trip.updatedAt = new Date();
     await trip.save();

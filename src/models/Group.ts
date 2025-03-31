@@ -1,14 +1,6 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
-import { IImageModel } from './Trip';
+import { IImageModel, ImageModalSchema } from './Trip';
 
-/* Embedded Interfaces */
-const ImageModalSchema = new Schema<IImageModel>(
-  {
-    url: { type: String },
-    image_id: { type: String },
-  },
-  { _id: false },
-);
 // Interface for a group member
 export interface IGroupMember {
   user: mongoose.Schema.Types.ObjectId;

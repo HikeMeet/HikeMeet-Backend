@@ -220,6 +220,7 @@ router.delete('/:id/delete-profile-picture', async (req: Request, res: Response)
     group.main_image = {
       url: DEFAULT_GROUP_IMAGE_URL,
       image_id: DEFAULT_GROUP_IMAGE_ID,
+      type: 'image',
     };
     group.updated_at = new Date();
     await group.save();
