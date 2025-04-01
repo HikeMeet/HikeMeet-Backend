@@ -10,6 +10,7 @@ export interface IComment {
 
 export interface IPost extends Document {
   author: mongoose.Schema.Types.ObjectId;
+  in_group?: mongoose.Schema.Types.ObjectId;
   content?: string;
   images?: IImageModel[];
   attached_trip?: mongoose.Schema.Types.ObjectId;
@@ -20,6 +21,8 @@ export interface IPost extends Document {
   comments: IComment[];
   is_shared: boolean;
   original_post?: mongoose.Schema.Types.ObjectId;
+  type: 'regular' | 'share_trip' | 'share_group';
+  privacy: 'public' | 'private';
   created_at: Date;
   updated_at: Date;
 }
@@ -34,6 +37,7 @@ const commentSchema = new Schema<IComment>({
 const postSchema = new Schema<IPost>(
   {
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    in_group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
     content: { type: String },
     images: [ImageModalSchema],
     attached_trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip' },
@@ -43,7 +47,9 @@ const postSchema = new Schema<IPost>(
     saves: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
     comments: [commentSchema],
     is_shared: { type: Boolean, default: false },
+    privacy: { type: String, enum: ['public', 'private'], default: 'public' },
     original_post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
+    type: { type: String, enum: ['regular', 'share_group', 'share_trip'], default: 'regular' },
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
 );

@@ -4,6 +4,7 @@ export interface IImageModel {
   url: string;
   image_id: string;
   type: 'image' | 'video';
+  video_sceenshot_url?: string;
 }
 
 export interface ITrip extends Document {
@@ -25,7 +26,8 @@ export const ImageModalSchema = new Schema<IImageModel>(
   {
     url: { type: String },
     image_id: { type: String },
-    type: { type: String, enum: ['image', 'video'], required: true },
+    type: { type: String, enum: ['image', 'video'] },
+    video_sceenshot_url: { type: String },
   },
   { _id: false },
 );

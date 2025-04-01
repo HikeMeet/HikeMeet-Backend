@@ -42,6 +42,7 @@ export async function uploadProfilePictureGeneric<T extends Document>(
   docAny[imageField] = {
     url: result.secure_url,
     image_id: result.public_id,
+    type: 'image',
   };
   // Update the timestamp field.
   docAny[updateDateField] = new Date();
@@ -84,6 +85,7 @@ export async function uploadImagesGeneric<T extends Document>(
   const newImages = uploadResults.map((result) => ({
     url: result.secure_url,
     image_id: result.public_id,
+    type: 'image',
   }));
 
   // Append the new images to the existing images array.
