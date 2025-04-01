@@ -1,4 +1,5 @@
 // cloudinaryService.ts
+
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 
@@ -12,28 +13,6 @@ cloudinary.config({
 // Set up Multer to store files in memory
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
-// Helper function to upload a file buffer to Cloudinary
-// const streamUploadProfileImage = (buffer: Buffer): Promise<any> => {
-//   return new Promise((resolve, reject) => {
-//     const stream = cloudinary.uploader.upload_stream({ folder: 'profile_images' }, (error: any, result: any) => {
-//       if (result) resolve(result);
-//       else reject(error);
-//     });
-//     stream.end(buffer);
-//   });
-// };
-
-// // Function to upload a single file buffer to Cloudinary (trip_images folder)
-// const streamUploadTripImage = (buffer: Buffer): Promise<any> => {
-//   return new Promise((resolve, reject) => {
-//     const stream = cloudinary.uploader.upload_stream({ folder: 'trip_images' }, (error: any, result: any) => {
-//       if (result) resolve(result);
-//       else reject(error);
-//     });
-//     stream.end(buffer);
-//   });
-// };
 
 const streamUploadImage = (buffer: Buffer, folder: string, options: Record<string, any> = {}): Promise<{ secure_url: string; public_id: string }> => {
   return new Promise((resolve, reject) => {
