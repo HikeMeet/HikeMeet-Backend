@@ -1,5 +1,6 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 import { IImageModel, ImageModalSchema } from './Trip';
+import { removeOldImage } from '../helpers/cloudinaryHelper';
 
 // Interface for a group member
 export interface IGroupMember {
@@ -90,5 +91,28 @@ const groupSchema = new Schema<IGroup>(
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
 );
+
+groupSchema.pre('findOneAndDelete', async function (next) {
+  const docToDelete = await this.model.findOne(this.getFilter());
+
+  if (!docToDelete) return next();
+
+  // Remove each image in images[]
+  if (docToDelete.images && docToDelete.images.length > 0) {
+    for (const img of docToDelete.images) {
+      const publicId = img.image_id;
+      if (publicId) {
+        await removeOldImage(publicId);
+      }
+    }
+  }
+
+  // Remove main image
+  if (docToDelete.main_image && docToDelete.main_image.image_id) {
+    await removeOldImage(docToDelete.main_image.image_id);
+  }
+
+  next();
+});
 
 export const Group: IGroupModel = model<IGroup, IGroupModel>('Group', groupSchema);

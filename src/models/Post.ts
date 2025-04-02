@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema, Model, model } from 'mongoose';
 import { IImageModel, ImageModalSchema } from './Trip';
+import { removeOldImage } from '../helpers/cloudinaryHelper';
 
 export interface IComment {
   user: mongoose.Schema.Types.ObjectId;
@@ -53,5 +54,23 @@ const postSchema = new Schema<IPost>(
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
 );
+
+postSchema.pre('findOneAndDelete', async function (next) {
+  const docToDelete = await this.model.findOne(this.getFilter());
+
+  if (!docToDelete || !docToDelete.images || docToDelete.images.length === 0) {
+    return next();
+  }
+
+  for (const img of docToDelete.images) {
+    // Assuming Cloudinary public_id is stored in `img.image_id`
+    const publicId = img.image_id;
+    if (publicId) {
+      await removeOldImage(publicId);
+    }
+  }
+
+  next();
+});
 
 export const Post: Model<IPost> = model<IPost>('Post', postSchema);

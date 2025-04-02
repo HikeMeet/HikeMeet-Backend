@@ -1,4 +1,5 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
+import { DEFAULT_PROFILE_IMAGE_ID, removeOldImage } from '../helpers/cloudinaryHelper';
 export interface ITripHistoryEntry {
   trip: mongoose.Schema.Types.ObjectId;
   completed_at: Date;
@@ -87,18 +88,26 @@ const userSchema = new Schema({
 
 // Mongoose Middleware: Cleanup friend references after a user is deleted
 // TODO: need to think what to do about Group creator field when deleting user
+
 userSchema.post('findOneAndDelete', async function (this: any, deletedDoc, next) {
   if (deletedDoc) {
     try {
+      // ✅ Remove user from others' friend lists
       await this.model.updateMany({ 'friends.id': deletedDoc._id }, { $pull: { friends: { id: deletedDoc._id } } });
+
+      // ✅ Remove user's profile image from Cloudinary
+      const publicId = deletedDoc.profile_picture?.image_id;
+      if (publicId) {
+        await removeOldImage(publicId, DEFAULT_PROFILE_IMAGE_ID);
+      }
+
       next();
     } catch (error) {
-      console.error('Error cleaning up friend references:', error);
+      console.error('Error during user cleanup:', error);
       next(error);
     }
   } else {
     next();
   }
 });
-
 export const User: IUserModel = model<IUser, IUserModel>('User', userSchema);
