@@ -36,11 +36,14 @@ router.post('/create', async (req: Request, res: Response) => {
 
 router.get('/all', async (req: Request, res: Response) => {
   try {
-    const { privacy, inGroup: groupId } = req.query;
+    const { privacy, inGroup: groupId, userId } = req.query;
     let filter: any = {};
 
     if (privacy) {
       filter.privacy = privacy;
+    }
+    if (userId) {
+      filter.author = userId;
     }
 
     if (groupId) {
@@ -79,14 +82,14 @@ router.post('/share', async (req: Request, res: Response) => {
 
     // Retrieve the original post document.
     const origPost = await Post.findById(original_post).lean();
-    if (origPost && origPost.privacy === 'private') {
+    if (origPost && origPost.privacy === 'private' && !origPost.in_group) {
       return res.status(400).json({ error: 'Cannot share a private post.' });
     }
-    // If the provided post is already a shared post and has an original_post,
-    // then use that as the original.
-    const finalOriginalPostId = origPost && origPost.is_shared && origPost.original_post ? origPost.original_post : original_post;
 
-    // Create the shared post document using the determined original post ID.
+    // Use the post that was clicked as the original_post, even if it’s already shared.
+    const finalOriginalPostId = original_post;
+
+    // Create the shared post document using the clicked post's ID.
     const sharedPostDoc = await Post.create({
       author,
       in_group: in_group || undefined,
@@ -99,16 +102,16 @@ router.post('/share', async (req: Request, res: Response) => {
       saves: [],
       comments: [],
       is_shared: true,
-      original_post: finalOriginalPostId || undefined,
+      original_post: finalOriginalPostId,
       privacy: privacy || 'public',
     });
 
-    // Populate the author and original_post fields.
+    // Populate fields.
     const sharedPost = await Post.findById(sharedPostDoc._id)
       .populate({ path: 'author', select: 'username profile_picture' })
       .populate({
         path: 'original_post',
-        select: '-likes -shares -saves -comments -is_shared -original_post',
+        select: '-likes -shares -saves -comments ',
         populate: { path: 'author', select: 'username profile_picture' },
       })
       .populate('attached_trip')
