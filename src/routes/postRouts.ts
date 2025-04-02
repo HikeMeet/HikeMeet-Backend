@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
+import { User } from '../models/User';
 
 const router = express.Router();
 
@@ -35,10 +36,19 @@ router.post('/create', async (req: Request, res: Response) => {
 
 router.get('/all', async (req: Request, res: Response) => {
   try {
-    // Read privacy from the query parameters.
-    // If privacy is provided, filter by it; otherwise, no privacy filter.
-    const { privacy } = req.query;
-    const filter = privacy ? { privacy } : {};
+    const { privacy, inGroup: groupId } = req.query;
+    let filter: any = {};
+
+    if (privacy) {
+      filter.privacy = privacy;
+    }
+
+    if (groupId) {
+      filter.in_group = groupId;
+    } else {
+      // Return only posts that do not have an in_group field
+      filter.in_group = { $exists: false };
+    }
 
     const posts = await Post.find(filter)
       .populate({ path: 'author', select: 'username profile_picture' })
@@ -143,15 +153,26 @@ router.post('/:id/update', async (req: Request, res: Response) => {
 });
 
 router.delete('/:id/delete', async (req: Request, res: Response) => {
-  /////// need to add remove media from cloudianry
   try {
     const { id } = req.params;
+    const { userId } = req.body;
 
-    // Attempt to delete the post with the given ID.
-    const deletedPost = await Post.findByIdAndDelete(id);
-    if (!deletedPost) {
+    const post = await Post.findById(id);
+    if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
+
+    // Authorization check: only the author or an admin can delete
+    const isAuthor = post.author.toString() === userId;
+    const user = await User.findById(userId);
+    const isAdmin = user?.role === 'admin';
+
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to delete this post' });
+    }
+
+    // Will trigger the pre('findOneAndDelete') hook to delete media
+    const deletedPost = await Post.findByIdAndDelete(id);
 
     res.status(200).json({ message: 'Post deleted successfully', post: deletedPost });
   } catch (error) {

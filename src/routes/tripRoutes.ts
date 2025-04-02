@@ -222,14 +222,7 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     if (!deletedTrip) {
       return res.status(404).json({ error: 'Group not found' });
     }
-    const imageId = trip.main_image?.image_id;
-    if (imageId && imageId !== DEFAULT_TRIP_IMAGE_ID) {
-      await removeOldImage(imageId, DEFAULT_TRIP_IMAGE_ID);
-    }
 
-    for (const image of trip.images || []) {
-      await removeOldImage(image.image_id);
-    }
     // Notify all group members (except the creator) that the group has been deleted.
 
     return res.status(200).json({ message: 'Trip deleted successfully', trip: deletedTrip });

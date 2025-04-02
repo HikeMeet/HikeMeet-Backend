@@ -176,10 +176,6 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     if (!deletedUser) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    // Remove the profile picture from Cloudinary if it exists and is not the default image.
-    await removeOldImage(deletedUser.profile_picture?.image_id, DEFAULT_PROFILE_IMAGE_ID);
-
     res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
   } catch (error) {
     console.error('Error deleting user:', error);

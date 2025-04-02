@@ -935,10 +935,7 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     if (!deletedGroup) {
       return res.status(404).json({ error: 'Group not found' });
     }
-    const imageId = group.main_image?.image_id;
-    if (imageId && imageId !== DEFAULT_GROUP_IMAGE_ID) {
-      await removeOldImage(imageId, DEFAULT_GROUP_IMAGE_ID);
-    }
+
     // Optionally, remove any notifications related to this group.
     await Notification.deleteMany({ group: group._id });
 
