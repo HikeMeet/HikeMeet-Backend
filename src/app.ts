@@ -28,11 +28,19 @@ import tripRoutes from './routes/tripRoutes';
 import groupRoutes from './routes/groupRoutes';
 import postRouts from './routes/postRouts';
 import cloudinaryRouts from './routes/cloudinaryRouts';
+import { v2 as cloudinary } from 'cloudinary';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
 
 const mongoURI: string = process.env.MONGO_URI || 'mongodb://localhost:27017/Hikemeet';
+
+// Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 mongoose
   .connect(mongoURI)
