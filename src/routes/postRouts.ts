@@ -111,6 +111,7 @@ router.get('/all', async (req: Request, res: Response) => {
       })
       .populate('attached_trip')
       .populate('attached_group')
+
       .sort({ created_at: -1 })
       .exec();
 
@@ -154,6 +155,7 @@ router.post('/share', async (req: Request, res: Response) => {
       original_post: finalOriginalPostId,
       privacy: privacy || 'public',
     });
+    await Post.findByIdAndUpdate(finalOriginalPostId, { $addToSet: { shares: author } });
 
     // Populate fields.
     const sharedPost = await Post.findById(sharedPostDoc._id)
@@ -244,6 +246,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
+
       .populate('attached_trip')
       .populate('attached_group')
       .exec();
