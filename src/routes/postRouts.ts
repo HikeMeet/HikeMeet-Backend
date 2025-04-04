@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -30,6 +31,54 @@ router.post('/create', async (req: Request, res: Response) => {
     res.status(201).json({ message: 'Post created successfully', post: newPost });
   } catch (error) {
     console.error('Error creating post:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get liked posts for a given user
+router.get('/liked/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    // Find posts that have the userId in the likes array
+    const likedPosts = await Post.find({ likes: userId })
+      .populate({ path: 'author', select: 'username profile_picture' })
+      .populate({
+        path: 'original_post',
+        select: 'content images author created_at',
+        populate: { path: 'author', select: 'username profile_picture' },
+      })
+      .populate('attached_trip')
+      .populate('attached_group')
+      .sort({ created_at: -1 })
+      .exec();
+
+    res.status(200).json({ posts: likedPosts });
+  } catch (error) {
+    console.error('Error fetching liked posts:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get saved posts for a given user
+router.get('/saved/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    // Find posts that have the userId in the saves array
+    const savedPosts = await Post.find({ saves: userId })
+      .populate({ path: 'author', select: 'username profile_picture' })
+      .populate({
+        path: 'original_post',
+        select: 'content images author created_at',
+        populate: { path: 'author', select: 'username profile_picture' },
+      })
+      .populate('attached_trip')
+      .populate('attached_group')
+      .sort({ created_at: -1 })
+      .exec();
+
+    res.status(200).json({ posts: savedPosts });
+  } catch (error) {
+    console.error('Error fetching saved posts:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -206,6 +255,154 @@ router.get('/:id', async (req: Request, res: Response) => {
     res.status(200).json({ post });
   } catch (error) {
     console.error('Error fetching post:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:id/like', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    const { id: postId } = req.params;
+
+    // Retrieve the post
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Check if the user already liked the post
+    if (post.likes.includes(userId)) {
+      return res.status(400).json({ error: 'Post already liked by this user' });
+    }
+
+    // Add user to the post's likes array
+    post.likes.push(userId);
+    await post.save();
+
+    // Update the liking user's document: add the post ID to social.posts_liked
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { 'social.posts_liked': postId },
+    });
+
+    // Update the post author's document: increment total_likes by 1
+    await User.findByIdAndUpdate(post.author, {
+      $inc: { 'social.total_likes': 1 },
+    });
+
+    res.status(200).json({ message: 'Post liked successfully', likes: post.likes });
+  } catch (error) {
+    console.error('Error liking post:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:id/like', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    const { id: postId } = req.params;
+
+    // Retrieve the post
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Check if the user has liked the post
+    if (!post.likes.includes(userId)) {
+      return res.status(400).json({ error: 'Like not found for this user' });
+    }
+
+    // Remove the user from the post's likes array
+    post.likes = post.likes.filter((like: mongoose.Schema.Types.ObjectId) => like.toString() !== userId);
+    await post.save();
+
+    // Update the liking user's document: remove the post ID from social.posts_liked
+    await User.findByIdAndUpdate(userId, {
+      $pull: { 'social.posts_liked': postId },
+    });
+
+    // Update the post author's document: decrement total_likes by 1
+    await User.findByIdAndUpdate(post.author, {
+      $inc: { 'social.total_likes': -1 },
+    });
+
+    res.status(200).json({ message: 'Post unliked successfully', likes: post.likes });
+  } catch (error) {
+    console.error('Error unliking post:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:id/save', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    const { id: postId } = req.params;
+
+    // Retrieve the post
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Check if the user already saved the post
+    if (post.saves.includes(userId)) {
+      return res.status(400).json({ error: 'Post already saved by this user' });
+    }
+
+    // Add user to the post's saves array
+    post.saves.push(userId);
+    await post.save();
+
+    // Update the liking user's document: add the post ID to social.posts_saved
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { 'social.posts_saved': postId },
+    });
+
+    // Update the post author's document: increment total_saves by 1
+    await User.findByIdAndUpdate(post.author, {
+      $inc: { 'social.total_saves': 1 },
+    });
+
+    res.status(200).json({ message: 'Post saved successfully', saves: post.saves });
+  } catch (error) {
+    console.error('Error saving post:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:id/save', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    const { id: postId } = req.params;
+
+    // Retrieve the post
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Check if the user has saved the post
+    if (!post.saves.includes(userId)) {
+      return res.status(400).json({ error: 'save not found for this user' });
+    }
+
+    // Remove the user from the post's saves array
+    post.saves = post.saves.filter((save: mongoose.Schema.Types.ObjectId) => save.toString() !== userId);
+    await post.save();
+
+    // Update the liking user's document: remove the post ID from social.posts_saved
+    await User.findByIdAndUpdate(userId, {
+      $pull: { 'social.posts_saved': postId },
+    });
+
+    // Update the post author's document: decrement total_saves by 1
+    await User.findByIdAndUpdate(post.author, {
+      $inc: { 'social.total_saves': -1 },
+    });
+
+    res.status(200).json({ message: 'Post unsaved successfully', saves: post.saves });
+  } catch (error) {
+    console.error('Error unsaving post:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
