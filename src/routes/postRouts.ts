@@ -111,7 +111,9 @@ router.get('/all', async (req: Request, res: Response) => {
       })
       .populate('attached_trip')
       .populate('attached_group')
-
+      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
+      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
       .sort({ created_at: -1 })
       .exec();
 
@@ -246,7 +248,9 @@ router.get('/:id', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
-
+      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
+      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
       .populate('attached_trip')
       .populate('attached_group')
       .exec();
@@ -406,6 +410,177 @@ router.delete('/:id/save', async (req: Request, res: Response) => {
     res.status(200).json({ message: 'Post unsaved successfully', saves: post.saves });
   } catch (error) {
     console.error('Error unsaving post:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:postId/comment', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const { userId, text } = req.body; // Expect user (as ObjectId string) and comment text
+    if (!userId || !text) {
+      return res.status(400).json({ error: 'User and text are required' });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Create a new comment object (IComment)
+    const comment = {
+      user: userId,
+      text,
+      created_at: new Date(),
+      liked_by: [],
+    };
+
+    // Push the comment into the post's comments array and save the post
+    post.comments.push(comment);
+    await post.save();
+
+    // Return the newly created comment (last element of the comments array)
+    res.status(201).json({
+      message: 'Comment added successfully',
+      comment: post.comments[post.comments.length - 1],
+    });
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:postId/comment/:commentId', async (req: Request, res: Response) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { text, userId } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Find the comment using Mongoose subdocument helper
+    const comment = (post.comments as any).id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    if (comment.user.toString() !== userId) {
+      return res.status(403).json({ error: 'You are not authorized to update this comment' });
+    }
+    // Update the comment text and save the post
+    comment.text = text;
+    await post.save();
+
+    res.status(200).json({
+      message: 'Comment updated successfully',
+      comment,
+    });
+  } catch (error) {
+    console.error('Error updating comment:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:postId/comment/:commentId', async (req: Request, res: Response) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { userId } = req.body;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Find the comment subdocument
+    const comment = (post.comments as any).id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+    // Check if the user is the author or a moderator
+    if (comment.user.toString() !== userId && post.author.toString() !== userId) {
+      return res.status(403).json({ error: 'You are not authorized to delete this comment' });
+    }
+    // Remove the comment and save the post
+    post.comments = post.comments.filter((c: any) => c._id.toString() !== commentId);
+    await post.save();
+
+    res.status(200).json({ message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:postId/comment/:commentId/like', async (req: Request, res: Response) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { userId } = req.body; // Expect the liking user's id in the body
+    if (!userId) {
+      return res.status(400).json({ error: 'UserId is required' });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const comment = (post.comments as any).id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    // Check if the user already liked the comment
+    if (comment.liked_by.some((id: any) => id.toString() === userId)) {
+      return res.status(400).json({ error: 'Comment already liked by this user' });
+    }
+
+    // Add userId to the liked_by array
+    comment.liked_by.push(userId);
+    await post.save();
+
+    res.status(200).json({ message: 'Comment liked', comment });
+  } catch (error) {
+    console.error('Error liking comment:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:postId/comment/:commentId/like', async (req: Request, res: Response) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { userId } = req.body; // Expect the unliking user's id in the body
+    console.log('::::::', userId);
+    if (!userId) {
+      return res.status(400).json({ error: 'UserId is required' });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const comment = (post.comments as any).id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    // Check if the user hasn't liked this comment already
+    if (!comment.liked_by.some((id: any) => id.toString() === userId)) {
+      return res.status(400).json({ error: 'User has not liked this comment yet' });
+    }
+
+    // Remove the userId from the liked_by array
+    comment.liked_by = comment.liked_by.filter((id: any) => id.toString() !== userId);
+    await post.save();
+
+    res.status(200).json({ message: 'Comment unliked', comment });
+  } catch (error) {
+    console.error('Error unliking comment:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
