@@ -113,6 +113,7 @@ router.get('/all', async (req: Request, res: Response) => {
       .populate('attached_group')
       .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
       .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
       .sort({ created_at: -1 })
       .exec();
 
@@ -249,6 +250,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       })
       .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
       .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
       .populate('attached_trip')
       .populate('attached_group')
       .exec();
@@ -552,6 +554,7 @@ router.delete('/:postId/comment/:commentId/like', async (req: Request, res: Resp
   try {
     const { postId, commentId } = req.params;
     const { userId } = req.body; // Expect the unliking user's id in the body
+    console.log('::::::', userId);
     if (!userId) {
       return res.status(400).json({ error: 'UserId is required' });
     }
