@@ -111,6 +111,7 @@ router.get('/all', async (req: Request, res: Response) => {
       })
       .populate('attached_trip')
       .populate('attached_group')
+      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
 
       .sort({ created_at: -1 })
       .exec();
@@ -246,6 +247,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
+      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
 
       .populate('attached_trip')
       .populate('attached_group')
