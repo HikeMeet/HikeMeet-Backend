@@ -85,13 +85,27 @@ router.get('/saved/:userId', async (req: Request, res: Response) => {
 
 router.get('/all', async (req: Request, res: Response) => {
   try {
-    const { privacy, inGroup: groupId, userId } = req.query;
+    const { privacy, inGroup: groupId, userId, friendsOnly } = req.query;
     let filter: any = {};
 
     if (privacy) {
       filter.privacy = privacy;
     }
-    if (userId) {
+    if (friendsOnly === 'true') {
+      if (!userId) {
+        return res.status(400).json({ error: 'userId is required for friendsOnly filter' });
+      }
+      // Retrieve the current user with their friends list.
+      const currentUser = await User.findById(userId).exec();
+      if (!currentUser) {
+        return res.status(404).json({ error: 'Current user not found' });
+      }
+      // Extract friend IDs where status is accepted.
+      const friendIds = (currentUser.friends || []).filter((friend: any) => friend.status === 'accepted').map((friend: any) => friend.id);
+      // Apply filter to return only posts whose author is in the friends list.
+      filter.author = { $in: friendIds };
+    } else if (userId) {
+      // If friendsOnly is not true but userId is provided, filter posts by that user.
       filter.author = userId;
     }
 
@@ -437,12 +451,19 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
 
     // Push the comment into the post's comments array and save the post
     post.comments.push(comment);
+
     await post.save();
 
-    // Return the newly created comment (last element of the comments array)
+    const postRespond = await Post.findById(postId)
+      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture' } })
+      .exec();
+
+    if (!postRespond) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
     res.status(201).json({
       message: 'Comment added successfully',
-      comment: post.comments[post.comments.length - 1],
+      comment: postRespond.comments[postRespond.comments.length - 1],
     });
   } catch (error) {
     console.error('Error adding comment:', error);
@@ -543,7 +564,18 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
     comment.liked_by.push(userId);
     await post.save();
 
-    res.status(200).json({ message: 'Comment liked', comment });
+    const populatedComment = await Post.findById(postId)
+      .select({ comments: { $elemMatch: { _id: commentId } } })
+      .populate({
+        path: 'comments.liked_by',
+        select: 'username first_name last_name profile_picture',
+      })
+      .exec();
+
+    res.status(200).json({
+      message: 'Comment liked',
+      liked_by: populatedComment?.comments[0]?.liked_by,
+    });
   } catch (error) {
     console.error('Error liking comment:', error);
     res.status(500).json({ error: 'Internal server error' });
