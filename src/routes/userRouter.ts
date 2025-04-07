@@ -106,6 +106,19 @@ router.get('/list-by-ids', async (req: Request, res: Response) => {
   }
 });
 
+export interface Friend {
+  id: string;
+  status: string;
+  data?: IUser;
+}
+
+interface IUser {
+  _id: string;
+  username: string;
+  profile_picture: { url: string; image_id: string };
+  first_name?: string;
+  last_name?: string;
+}
 // GET /:mongoId - Get a user by ID or Firebase ID
 router.get('/:mongoId', async (req: Request, res: Response) => {
   try {
@@ -113,18 +126,23 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     const firebase = req.query.firebase === 'true'; // Default is false if not provided
     console.log(mongoId, ' xxxx ', firebase);
     let user;
+
+    // Populate friend user data with only the selected fields
+    const populateOptions = {
+      path: 'friends.id',
+      select: '_id username profile_picture first_name last_name',
+    };
+
     if (mongoId === 'all') {
-      console.log('Get all user');
-      user = await User.find({});
+      console.log('Get all users');
+      user = await User.find({}).populate(populateOptions);
     } else {
       if (firebase) {
-        // Search for the user by Firebase UID
         console.log('Get user with firebase id');
-        user = await User.findOne({ firebase_id: mongoId });
+        user = await User.findOne({ firebase_id: mongoId }).populate(populateOptions);
       } else {
-        // Search for the user by MongoDB ID
-        console.log('Get user with monogo id');
-        user = await User.findById(mongoId);
+        console.log('Get user with mongo id');
+        user = await User.findById(mongoId).populate(populateOptions);
       }
     }
 
@@ -132,7 +150,43 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.status(200).json(user);
+    // If fetching a single user, user is a document. If fetching all users, it's an array.
+    let userObj;
+    if (Array.isArray(user)) {
+      userObj = user.map((doc) => doc.toObject());
+    } else {
+      userObj = user.toObject();
+    }
+
+    // Map friends to match the Friend interface:
+    // { id: string, status: string, data?: IUser }
+    const mapFriends = (userData: any) => {
+      if (userData.friends && Array.isArray(userData.friends)) {
+        userData.friends = userData.friends
+          // Filter out entries without an id
+          .filter((friend: any) => friend.id)
+          .map((friend: any) => ({
+            id: friend.id._id.toString(),
+            status: friend.status,
+            data: {
+              _id: friend.id._id,
+              username: friend.id.username,
+              profile_picture: friend.id.profile_picture,
+              first_name: friend.id.first_name,
+              last_name: friend.id.last_name,
+            },
+          }));
+      }
+      return userData;
+    };
+
+    if (Array.isArray(userObj)) {
+      userObj = userObj.map(mapFriends);
+    } else {
+      userObj = mapFriends(userObj);
+    }
+
+    res.status(200).json(userObj);
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ error: 'Internal Server Error' });

@@ -33,9 +33,9 @@ export interface IUser extends Document {
     total_shares?: number;
     total_saves?: number;
   };
-  friends?: {
-    status?: 'request_sent' | 'request_received' | 'accepted' | 'blocked';
-    id?: mongoose.Schema.Types.ObjectId;
+  friends: {
+    status: 'request_sent' | 'request_received' | 'accepted' | 'blocked';
+    id: mongoose.Schema.Types.ObjectId;
   }[];
   trip_history: ITripHistoryEntry[];
   firebase_id: string;
