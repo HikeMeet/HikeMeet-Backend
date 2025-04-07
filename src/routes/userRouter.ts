@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
 import mongoose from 'mongoose';
-import { removeOldImage, DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL } from '../helpers/cloudinaryHelper';
+import { DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL } from '../helpers/cloudinaryHelper';
 
 const router = express.Router();
 
@@ -230,39 +230,6 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-router.delete('/:id/delete-profile-picture', async (req: Request, res: Response) => {
-  try {
-    const userId: string = req.params.id;
-
-    // Find the user by ID
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Save the current image id to delete if necessary
-    const oldImageId = user.profile_picture?.image_id;
-
-    // Update the user's profile_picture to the default values
-    user.profile_picture = {
-      url: DEFAULT_PROFILE_IMAGE_URL,
-      image_id: DEFAULT_PROFILE_IMAGE_ID,
-    };
-    user.updated_on = new Date();
-    await user.save();
-
-    // Delete the old image from Cloudinary if it exists and isn't the default one
-    if (oldImageId && oldImageId !== DEFAULT_PROFILE_IMAGE_ID) {
-      await removeOldImage(oldImageId, DEFAULT_PROFILE_IMAGE_ID);
-    }
-
-    res.status(200).json(user);
-  } catch (error: any) {
-    console.error('Error deleting profile picture:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

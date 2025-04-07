@@ -1,11 +1,12 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
-import { removeOldImage } from '../helpers/cloudinaryHelper';
+import { DEFAULT_TRIP_IMAGE_ID, DEFAULT_TRIP_IMAGE_URL, removeOldImage } from '../helpers/cloudinaryHelper';
 
 export interface IImageModel {
   url: string;
   image_id: string;
-  type: 'image' | 'video';
+  type?: 'image' | 'video';
   video_sceenshot_url?: string;
+  delete_token?: string;
 }
 
 export interface ITrip extends Document {
@@ -29,6 +30,7 @@ export const ImageModalSchema = new Schema<IImageModel>(
     image_id: { type: String },
     type: { type: String, enum: ['image', 'video'] },
     video_sceenshot_url: { type: String },
+    delete_token: { type: String },
   },
   { _id: false },
 );
@@ -75,6 +77,23 @@ tripSchema.pre('findOneAndDelete', async function (next) {
     await removeOldImage(docToDelete.main_image.image_id);
   }
 
+  next();
+});
+
+tripSchema.pre('findOneAndUpdate', function (next) {
+  const update = this.getUpdate() as any;
+
+  // If main_image is not provided or is empty, set default values.
+  if (!update.main_image || Object.keys(update.main_image).length === 0) {
+    update.main_image = {
+      url: DEFAULT_TRIP_IMAGE_URL,
+      image_id: DEFAULT_TRIP_IMAGE_ID,
+      delete_token: '',
+    };
+  }
+
+  // Also update the updated_at field.
+  update.updated_at = new Date();
   next();
 });
 

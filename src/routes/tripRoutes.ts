@@ -2,11 +2,9 @@ import express, { Request, Response } from 'express';
 import { Trip } from '../models/Trip'; // Adjust the path if needed
 import { ArchivedTrip } from '../models/ArchiveTrip'; // Adjust the path if needed
 import mongoose from 'mongoose';
-import { DEFAULT_TRIP_IMAGE_URL, DEFAULT_TRIP_IMAGE_ID, upload, removeOldImage } from '../helpers/cloudinaryHelper';
-import { uploadImagesGeneric } from '../helpers/imagesHelper';
+import { DEFAULT_TRIP_IMAGE_URL, DEFAULT_TRIP_IMAGE_ID, removeOldImage } from '../helpers/cloudinaryHelper';
 
 const router = express.Router();
-const MAX_IMAGE_COUNT = 5;
 // POST /trips/create - Create a new trip
 router.post('/create', async (req: Request, res: Response) => {
   try {
@@ -102,103 +100,6 @@ router.post('/:id/update', async (req, res) => {
   } catch (error) {
     console.error('Error updating trip:', error);
     res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-router.post('/:id/upload-trip-images', upload.array('images', MAX_IMAGE_COUNT), async (req: Request, res: Response) => {
-  try {
-    const tripId: string = req.params.id;
-
-    // Ensure files are provided.
-    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-      return res.status(400).json({ error: 'No image files provided' });
-    }
-
-    // Extract file buffers from the uploaded files.
-    const buffers: Buffer[] = req.files.map((file: Express.Multer.File) => file.buffer);
-
-    // Use the generic helper to upload images and update the trip's images field.
-    const updatedTrip = await uploadImagesGeneric(
-      Trip,
-      tripId,
-      buffers,
-      MAX_IMAGE_COUNT,
-      'images', // The field in Trip model where images are stored.
-      'trip_images', // The Cloudinary folder for trip images.
-    );
-
-    res.status(200).json(updatedTrip);
-  } catch (error: any) {
-    console.error('Error uploading trip images:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-router.delete('/:id/delete-trip-images', async (req: Request, res: Response) => {
-  try {
-    const tripId: string = req.params.id;
-    const { imageIds } = req.body; // Expecting { imageIds: string[] }
-
-    if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
-      return res.status(400).json({ error: 'No image IDs provided' });
-    }
-
-    // Find the trip by ID
-    const trip = await Trip.findById(tripId);
-    if (!trip) {
-      return res.status(404).json({ error: 'Trip not found' });
-    }
-
-    // Filter the images to remove based on the provided image IDs
-    const imagesToRemove = trip.images?.filter((image) => imageIds.includes(image.image_id)) || [];
-
-    // Remove each image from Cloudinary
-    for (const image of imagesToRemove) {
-      await removeOldImage(image.image_id);
-    }
-
-    // Remove the images from the trip's images array
-    trip.images = trip.images?.filter((image) => !imageIds.includes(image.image_id));
-    await trip.save();
-
-    res.status(200).json(trip);
-  } catch (error: any) {
-    console.error('Error deleting trip images:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-router.delete('/:id/delete-profile-picture', async (req: Request, res: Response) => {
-  try {
-    const tripId: string = req.params.id;
-
-    // Find the user by ID
-    const trip = await Trip.findById(tripId);
-    if (!trip) {
-      return res.status(404).json({ error: 'trip not found' });
-    }
-
-    // Save the current image id to delete if necessary
-    const oldImageId = trip.main_image?.image_id;
-
-    // Update the trip's main_image to the default values
-    trip.main_image = {
-      url: DEFAULT_TRIP_IMAGE_URL,
-      image_id: DEFAULT_TRIP_IMAGE_ID,
-      type: 'image',
-    };
-    trip.updatedAt = new Date();
-    await trip.save();
-
-    // Delete the old image from Cloudinary if it exists and isn't the default one
-    if (oldImageId && oldImageId !== DEFAULT_TRIP_IMAGE_ID) {
-      await removeOldImage(oldImageId, DEFAULT_TRIP_IMAGE_ID);
-    }
-
-    res.status(200).json(trip);
-  } catch (error: any) {
-    console.error('Error deleting profile picture:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

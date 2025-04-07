@@ -6,7 +6,7 @@ const router = express.Router();
 router.get('/cloudinary-signature', (req: Request, res: Response) => {
   const folder = req.query.folder || 'default_folder';
   const timestamp = Math.floor(Date.now() / 1000);
-  const paramsToSign = { timestamp, folder };
+  const paramsToSign = { timestamp, folder, return_delete_token: 'true' };
   try {
     const signature = cloudinary.utils.api_sign_request(paramsToSign, process.env.CLOUDINARY_API_SECRET!);
     console.log(':::::: ', signature);

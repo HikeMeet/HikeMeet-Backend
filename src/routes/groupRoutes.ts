@@ -178,40 +178,6 @@ router.delete('/:id/delete-trip-images', async (req: Request, res: Response) => 
   }
 });
 
-router.delete('/:id/delete-profile-picture', async (req: Request, res: Response) => {
-  try {
-    const groupId: string = req.params.id;
-
-    // Find the user by ID
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ error: 'trip not found' });
-    }
-
-    // Save the current image id to delete if necessary
-    const oldImageId = group.main_image?.image_id;
-
-    // Update the trip's main_image to the default values
-    group.main_image = {
-      url: DEFAULT_GROUP_IMAGE_URL,
-      image_id: DEFAULT_GROUP_IMAGE_ID,
-      type: 'image',
-    };
-    group.updated_at = new Date();
-    await group.save();
-
-    // Delete the old image from Cloudinary if it exists and isn't the default one
-    if (oldImageId && oldImageId !== DEFAULT_GROUP_IMAGE_ID) {
-      await removeOldImage(oldImageId, DEFAULT_GROUP_IMAGE_ID);
-    }
-
-    res.status(200).json(group);
-  } catch (error: any) {
-    console.error('Error deleting profile picture:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
 // POST /:id/update/ - Update an existing group
 router.post('/:id/update', async (req: Request, res: Response) => {
   try {
