@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
-import { DEFAULT_PROFILE_IMAGE_ID, removeOldImage } from '../helpers/cloudinaryHelper';
+import { DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL, removeOldImage } from '../helpers/cloudinaryHelper';
 export interface ITripHistoryEntry {
   trip: mongoose.Schema.Types.ObjectId;
   completed_at: Date;
@@ -21,6 +21,7 @@ export interface IUser extends Document {
   profile_picture?: {
     url: string;
     image_id: string;
+    delete_token?: string;
   };
   bio?: string;
   facebook_link?: string;
@@ -55,6 +56,7 @@ const userSchema = new Schema({
   profile_picture: {
     url: { type: String, required: true },
     image_id: { type: String, required: true },
+    delete_token: { type: String },
   },
   bio: { type: String },
   facebook_link: { type: String },
@@ -110,4 +112,28 @@ userSchema.post('findOneAndDelete', async function (this: any, deletedDoc, next)
     next();
   }
 });
+
+userSchema.pre('findOneAndUpdate', function (next) {
+  this.set({ updated_on: new Date() });
+  next();
+});
+
+userSchema.pre('findOneAndUpdate', function (next) {
+  const update = this.getUpdate() as any;
+
+  // Check if an update for profile_picture is provided
+  // or if it's set to null/empty – then reset to defaults.
+  if (!update.profile_picture || Object.keys(update.profile_picture).length === 0) {
+    update.profile_picture = {
+      url: DEFAULT_PROFILE_IMAGE_URL,
+      image_id: DEFAULT_PROFILE_IMAGE_ID,
+      delete_token: '',
+    };
+  }
+
+  // Also update the updated_on field.
+  update.updated_on = new Date();
+  next();
+});
+
 export const User: IUserModel = model<IUser, IUserModel>('User', userSchema);

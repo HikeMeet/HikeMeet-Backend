@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { Notification } from '../models/Notifications';
-import { uploadImagesGeneric, uploadProfilePictureGeneric } from '../helpers/imagesHelper';
+import { uploadImagesGeneric } from '../helpers/imagesHelper';
 import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL, removeOldImage, upload } from '../helpers/cloudinaryHelper';
 const router = express.Router();
 const MAX_IMAGE_COUNT = 5;
@@ -109,31 +109,6 @@ router.post('/create', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/:id/upload-profile-picture', upload.single('image'), async (req: Request, res: Response) => {
-  try {
-    const groupId: string = req.params.id;
-    if (!req.file) {
-      return res.status(400).json({ error: 'No image file provided' });
-    }
-    // Use the generic helper to update the group's main image.
-    // Note: our Group schema uses timestamps with "updated_at".
-    const updatedGroup = await uploadProfilePictureGeneric(
-      Group,
-      groupId,
-      req.file.buffer,
-      removeOldImage, // Function to remove old image from Cloudinary
-      DEFAULT_GROUP_IMAGE_ID, // Default group image ID
-      'updated_at', // Timestamp field name in Group (from timestamps: { updatedAt: 'updated_at' })
-      'main_image', // The field where the main image is stored
-      'group_images', // Cloudinary folder name for group images
-    );
-    res.status(200).json(updatedGroup);
-  } catch (error: any) {
-    console.error('Error uploading group profile picture:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
 router.post('/:id/upload-group-images', upload.array('images', MAX_IMAGE_COUNT), async (req: Request, res: Response) => {
   try {
     const groupId: string = req.params.id;
@@ -203,40 +178,6 @@ router.delete('/:id/delete-trip-images', async (req: Request, res: Response) => 
   }
 });
 
-router.delete('/:id/delete-profile-picture', async (req: Request, res: Response) => {
-  try {
-    const groupId: string = req.params.id;
-
-    // Find the user by ID
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ error: 'trip not found' });
-    }
-
-    // Save the current image id to delete if necessary
-    const oldImageId = group.main_image?.image_id;
-
-    // Update the trip's main_image to the default values
-    group.main_image = {
-      url: DEFAULT_GROUP_IMAGE_URL,
-      image_id: DEFAULT_GROUP_IMAGE_ID,
-      type: 'image',
-    };
-    group.updated_at = new Date();
-    await group.save();
-
-    // Delete the old image from Cloudinary if it exists and isn't the default one
-    if (oldImageId && oldImageId !== DEFAULT_GROUP_IMAGE_ID) {
-      await removeOldImage(oldImageId, DEFAULT_GROUP_IMAGE_ID);
-    }
-
-    res.status(200).json(group);
-  } catch (error: any) {
-    console.error('Error deleting profile picture:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
 // POST /:id/update/ - Update an existing group
 router.post('/:id/update', async (req: Request, res: Response) => {
   try {
@@ -264,6 +205,7 @@ router.post('/:id/update', async (req: Request, res: Response) => {
       'finish_time',
       'embarked_at', // temporarily allowed to do our conversion
       'chat_room_id',
+      'main_image',
     ];
 
     // Check that every key in updateData is allowed.
