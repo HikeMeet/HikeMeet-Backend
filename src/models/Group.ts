@@ -115,4 +115,10 @@ groupSchema.pre('findOneAndDelete', async function (next) {
   next();
 });
 
+groupSchema.pre('findOneAndUpdate', function (next) {
+  // Set updated_at to current date
+  this.set({ updated_at: new Date() });
+  next();
+});
+
 export const Group: IGroupModel = model<IGroup, IGroupModel>('Group', groupSchema);

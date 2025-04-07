@@ -3,7 +3,7 @@ import { Trip } from '../models/Trip'; // Adjust the path if needed
 import { ArchivedTrip } from '../models/ArchiveTrip'; // Adjust the path if needed
 import mongoose from 'mongoose';
 import { DEFAULT_TRIP_IMAGE_URL, DEFAULT_TRIP_IMAGE_ID, upload, removeOldImage } from '../helpers/cloudinaryHelper';
-import { uploadImagesGeneric, uploadProfilePictureGeneric } from '../helpers/imagesHelper';
+import { uploadImagesGeneric } from '../helpers/imagesHelper';
 
 const router = express.Router();
 const MAX_IMAGE_COUNT = 5;
@@ -83,30 +83,25 @@ router.get('/all', async (_req: Request, res: Response) => {
   }
 });
 
-// POST api/trips/:id/upload-profile-picture
-router.post('/:id/upload-profile-picture', upload.single('image'), async (req: Request, res: Response) => {
-  try {
-    const tripId: string = req.params.id;
+router.post('/:id/update', async (req, res) => {
+  const tripId = req.params.id;
+  const updateData = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ error: 'No image file provided' });
+  try {
+    // Update the trip document with the provided fields.
+    const updatedTrip = await Trip.findByIdAndUpdate(tripId, updateData, {
+      new: true, // Return the updated document.
+      runValidators: true, // Ensure updates meet schema validations.
+    });
+
+    if (!updatedTrip) {
+      return res.status(404).json({ error: 'Trip not found.' });
     }
 
-    const updatedTrip = await uploadProfilePictureGeneric(
-      Trip,
-      tripId,
-      req.file.buffer,
-      removeOldImage, // Function to remove old image
-      DEFAULT_TRIP_IMAGE_ID, // Default trip image ID
-      'updatedAt', // Field name for timestamp in Trip model
-      'main_image', // Field name for main image in Trip model
-      'trip_images', // Folder name for trip images
-    );
-
-    res.status(200).json(updatedTrip);
-  } catch (error: any) {
-    console.error('Error uploading trip profile picture:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.json(updatedTrip);
+  } catch (error) {
+    console.error('Error updating trip:', error);
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 

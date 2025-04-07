@@ -1,8 +1,7 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
 import mongoose from 'mongoose';
-import { removeOldImage, DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL, upload } from '../helpers/cloudinaryHelper';
-import { uploadProfilePictureGeneric } from '../helpers/imagesHelper';
+import { removeOldImage, DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL } from '../helpers/cloudinaryHelper';
 
 const router = express.Router();
 
@@ -200,8 +199,6 @@ router.post('/:id/update', async (req: Request, res: Response) => {
 
     const userId = req.params.id;
     const updates = req.body; // Updates from the request body
-    updates.updated_on = new Date();
-
     // Find the user and update
     const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true });
     if (!updatedUser) {
@@ -233,35 +230,6 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     res.status(200).json({ message: 'User deleted successfully', user: deletedUser });
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// POST /:id/upload-profile-picture
-// This endpoint receives an image file, uploads it to Cloudinary, updates the user in MongoDB,
-// and then deletes the old image from Cloudinary. If any step fails, all changes are rolled back.
-router.post('/:id/upload-profile-picture', upload.single('image'), async (req: Request, res: Response) => {
-  try {
-    const userId: string = req.params.id;
-
-    if (!req.file) {
-      return res.status(400).json({ error: 'No image file provided' });
-    }
-
-    const updatedUser = await uploadProfilePictureGeneric(
-      User,
-      userId,
-      req.file.buffer,
-      removeOldImage, // Function to remove old image
-      DEFAULT_PROFILE_IMAGE_ID, // Default profile image ID
-      'updated_on', // Field name for timestamp in User model
-      'profile_picture', // Field name for profile picture in User model
-      'profile_images', // Folder name for profile images
-    );
-
-    res.status(200).json(updatedUser);
-  } catch (error: any) {
-    console.error('Error uploading profile picture:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

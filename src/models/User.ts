@@ -110,4 +110,10 @@ userSchema.post('findOneAndDelete', async function (this: any, deletedDoc, next)
     next();
   }
 });
+
+userSchema.pre('findOneAndUpdate', function (next) {
+  this.set({ updated_on: new Date() });
+  next();
+});
+
 export const User: IUserModel = model<IUser, IUserModel>('User', userSchema);
