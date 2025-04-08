@@ -105,6 +105,21 @@ router.get('/list-by-ids', async (req: Request, res: Response) => {
   }
 });
 
+// GET /partial-all - Get all users with partial fields as per the IUser interface
+router.get('/partial-all', async (_req: Request, res: Response) => {
+  try {
+    // Query all users and select only the required fields:
+    // _id, username, profile_picture, first_name, and last_name.
+    const users = await User.find({}).select('username profile_picture first_name last_name');
+
+    // Return the users array as the response
+    res.status(200).json(users);
+  } catch (error) {
+    console.error('Error fetching partial user data:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 export interface Friend {
   id: string;
   status: string;
