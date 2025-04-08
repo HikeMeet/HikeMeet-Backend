@@ -9,7 +9,7 @@ router.post('/create', async (req: Request, res: Response) => {
   try {
     // Destructure the expected fields from the request body.
     // We assume `images` is an array of media objects sent from the frontend.
-    const { author, content, images, attached_trip, attached_group, type, privacy, in_group } = req.body;
+    const { author, content, images, attached_trips, attached_groups, type, privacy, in_group } = req.body;
 
     // Create a new post using the provided data.
     const newPost = await Post.create({
@@ -17,8 +17,8 @@ router.post('/create', async (req: Request, res: Response) => {
       in_group: in_group || undefined,
       content,
       images: images || [], // Expecting an array of IImageModel objects
-      attached_trip: attached_trip || undefined,
-      attached_group: attached_group || undefined,
+      attached_trips: attached_trips || undefined,
+      attached_groups: attached_groups || undefined,
       likes: [],
       shares: [],
       saves: [],
@@ -47,8 +47,8 @@ router.get('/liked/:userId', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
-      .populate('attached_trip')
-      .populate('attached_group')
+      .populate('attached_trips')
+      .populate('attached_groups')
       .sort({ created_at: -1 })
       .exec();
 
@@ -71,8 +71,8 @@ router.get('/saved/:userId', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
-      .populate('attached_trip')
-      .populate('attached_group')
+      .populate('attached_trips')
+      .populate('attached_groups')
       .sort({ created_at: -1 })
       .exec();
 
@@ -123,8 +123,8 @@ router.get('/all', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
-      .populate('attached_trip')
-      .populate('attached_group')
+      .populate('attached_trips')
+      .populate('attached_groups')
       .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
       .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
       .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
@@ -140,7 +140,7 @@ router.get('/all', async (req: Request, res: Response) => {
 
 router.post('/share', async (req: Request, res: Response) => {
   try {
-    const { author, content, original_post, images, attached_trip, attached_group, in_group, privacy } = req.body;
+    const { author, content, original_post, images, attached_trips, attached_groups, in_group, privacy } = req.body;
 
     if (!original_post) {
       return res.status(400).json({ error: 'Original post ID is required for sharing.' });
@@ -161,8 +161,8 @@ router.post('/share', async (req: Request, res: Response) => {
       in_group: in_group || undefined,
       content, // Optional commentary by the sharing user.
       images: images || [],
-      attached_trip: attached_trip || undefined,
-      attached_group: attached_group || undefined,
+      attached_trips: attached_trips || undefined,
+      attached_groups: attached_groups || undefined,
       likes: [],
       shares: [],
       saves: [],
@@ -181,8 +181,8 @@ router.post('/share', async (req: Request, res: Response) => {
         select: '-likes -shares -saves -comments ',
         populate: { path: 'author', select: 'username profile_picture' },
       })
-      .populate('attached_trip')
-      .populate('attached_group')
+      .populate('attached_trips')
+      .populate('attached_groups')
       .exec();
 
     res.status(201).json({ message: 'Post shared successfully', post: sharedPost });
@@ -211,8 +211,8 @@ router.post('/:id/update', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
-      .populate('attached_trip')
-      .populate('attached_group')
+      .populate('attached_trips')
+      .populate('attached_groups')
       .exec();
 
     res.status(200).json({ message: 'Post updated successfully', post: populatedPost });
@@ -265,8 +265,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
       .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
       .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
-      .populate('attached_trip')
-      .populate('attached_group')
+      .populate('attached_trips')
+      .populate('attached_groups')
       .exec();
 
     if (!post) {

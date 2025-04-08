@@ -14,8 +14,8 @@ export interface IPost extends Document {
   in_group?: mongoose.Schema.Types.ObjectId;
   content?: string;
   images?: IImageModel[];
-  attached_trip?: mongoose.Schema.Types.ObjectId;
-  attached_group?: mongoose.Schema.Types.ObjectId;
+  attached_trips?: mongoose.Schema.Types.ObjectId[];
+  attached_groups?: mongoose.Schema.Types.ObjectId[];
   likes: mongoose.Schema.Types.ObjectId[];
   shares: mongoose.Schema.Types.ObjectId[];
   saves: mongoose.Schema.Types.ObjectId[];
@@ -41,8 +41,8 @@ const postSchema = new Schema<IPost>(
     in_group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
     content: { type: String },
     images: [ImageModalSchema],
-    attached_trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip' },
-    attached_group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
+    attached_trips: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: [] }],
+    attached_groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: [] }],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
     shares: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
     saves: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
