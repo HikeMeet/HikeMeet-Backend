@@ -48,6 +48,9 @@ router.get('/liked/:userId', async (req: Request, res: Response) => {
         populate: { path: 'author', select: 'username profile_picture' },
       })
       .populate('attached_trips')
+      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
       .populate('attached_groups')
       .sort({ created_at: -1 })
       .exec();
@@ -71,6 +74,9 @@ router.get('/saved/:userId', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
+      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
+      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
       .populate('attached_trips')
       .populate('attached_groups')
       .sort({ created_at: -1 })

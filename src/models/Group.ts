@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 import { IImageModel, ImageModalSchema } from './Trip';
-import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL, removeOldImage } from '../helpers/cloudinaryHelper';
+import { removeOldImage } from '../helpers/cloudinaryHelper';
 
 // Interface for a group member
 export interface IGroupMember {
@@ -121,21 +121,5 @@ groupSchema.pre('findOneAndUpdate', function (next) {
   next();
 });
 // Pre-hook for updating the updated_at field and ensuring a default main_image if none is provided.
-groupSchema.pre('findOneAndUpdate', function (next) {
-  const update = this.getUpdate() as any;
-
-  // If main_image is not provided or is empty, set default values.
-  if (!update.main_image || Object.keys(update.main_image).length === 0) {
-    update.main_image = {
-      url: DEFAULT_GROUP_IMAGE_URL,
-      image_id: DEFAULT_GROUP_IMAGE_ID,
-      delete_token: '',
-    };
-  }
-
-  // Also update the updated_at field.
-  update.updated_at = new Date();
-  next();
-});
 
 export const Group: IGroupModel = model<IGroup, IGroupModel>('Group', groupSchema);
