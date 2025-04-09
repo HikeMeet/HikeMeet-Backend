@@ -115,7 +115,7 @@ mongoose
       console.info(`Server is listening on ${bind}`);
     }
 
-    app.listen(port, '0.0.0.0', () => {
+    server.listen(port, '0.0.0.0', () => {
       console.log('Server is running on http://0.0.0.0:3000');
     });
     server.on('error', onError);

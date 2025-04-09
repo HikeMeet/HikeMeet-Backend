@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # Expose the application port (e.g., 4000)
-EXPOSE 4000
+EXPOSE 3000
 
 # Start the backend server
 CMD ["npm", "run", "dev"]
