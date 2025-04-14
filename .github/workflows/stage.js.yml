@@ -12,7 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    environment:
+      name: stage
     strategy:
       matrix:
         node-version: [22.x] #, 20.x, 18.x]
