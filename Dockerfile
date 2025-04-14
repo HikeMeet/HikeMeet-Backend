@@ -1,18 +1,16 @@
-# Use smaller and safer Node 22 base image
-FROM node:22-slim
+# Use safe Node base
+FROM node:22
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files and install deps first (better caching)
+# Install deps
 COPY package*.json ./
 RUN npm install
 
-# Copy the rest of the code
+# Copy source and build
 COPY . .
+RUN npm run build
 
-# Expose the port your backend listens on
+# Expose and run
 EXPOSE 3000
-
-# Start the backend
 CMD ["npm", "start"]
