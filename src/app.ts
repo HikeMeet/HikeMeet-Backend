@@ -7,6 +7,8 @@ import http from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import './utils/cronJobs';
+console.log('✅ Backend booting...');
+
 dotenv.config({ path: path.join(__dirname, `../.env`) });
 const env = process.env.NODE_ENV || 'local';
 
