@@ -11,11 +11,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: production
 
     strategy:
       matrix:
         node-version: [22.x] #, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
       - uses: actions/checkout@v4
@@ -24,12 +24,12 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-      - run: npm ci
+      - run: npm install
         name: Install dependencies
       - run: npm run lint
         name: Run Linter Check
       - run: npm run build --if-present
         name: build project
         #- run: npm test
-      - run: curl https://api.render.com/deploy/srv-cu1v1abqf0us73dggjn0?key=j6H1QMO1c3c
+      - run: curl https://api.render.com/deploy/srv-cvv5jd3e5dus73e9mmig?key=YZJVNfNGTEo
         name: deploy app
