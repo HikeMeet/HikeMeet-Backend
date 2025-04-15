@@ -6,6 +6,8 @@ import cookieParser from 'cookie-parser';
 import http from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import './utils/cronJobs';
+console.log('✅ Backend booting...');
 
 dotenv.config({ path: path.join(__dirname, `../.env`) });
 const env = process.env.NODE_ENV || 'local';
@@ -25,17 +27,27 @@ import adminRoutes from './routes/admin';
 
 import './firebaseAdmin';
 import tripRoutes from './routes/tripRoutes';
+import groupRoutes from './routes/groupRoutes';
+import postRouts from './routes/postRouts';
+import cloudinaryRouts from './routes/cloudinaryRouts';
+import { v2 as cloudinary } from 'cloudinary';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
 
 const mongoURI: string = process.env.MONGO_URI || 'mongodb://localhost:27017/Hikemeet';
 
+// Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 mongoose
   .connect(mongoURI)
   .then(() => {
     console.info(`Connected to MongoDB`);
-
     app.use(
       cors({
         origin: (origin, callback) => {
@@ -60,6 +72,9 @@ mongoose
     app.use('/api/friend', friendsRoutes); //action on users (check status, add, remove, cancel request)
     app.use('/api/admin', adminRoutes); //action on users (check status, add, remove, cancel request)
     app.use('/api/trips', tripRoutes); //action on users (check status, add, remove, cancel request)
+    app.use('/api/group', groupRoutes); //action on users (check status, add, remove, cancel request)
+    app.use('/api/post', postRouts); //action on users (check status, add, remove, cancel request)
+    app.use('/api/cloudinary', cloudinaryRouts); //action on users (check status, add, remove, cancel request)
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {

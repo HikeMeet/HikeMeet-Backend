@@ -1,4 +1,5 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
+import { IImageModel, ImageModalSchema } from './Trip';
 
 export interface IArchivedTrip extends Document {
   name: string;
@@ -7,7 +8,8 @@ export interface IArchivedTrip extends Document {
     coordinates: [number, number]; // [longitude, latitude]
   };
   description?: string;
-  images?: string[];
+  images?: IImageModel[];
+  main_image?: IImageModel;
   tags?: string[];
   createdBy: mongoose.Schema.Types.ObjectId;
   createdAt: Date;
@@ -28,7 +30,8 @@ const archivedTripSchema = new Schema(
       },
     },
     description: { type: String },
-    images: [{ type: String }],
+    images: [ImageModalSchema],
+    main_image: ImageModalSchema,
     tags: [{ type: String }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },

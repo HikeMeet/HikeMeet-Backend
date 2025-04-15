@@ -2,13 +2,13 @@ import express, { Request, Response } from 'express';
 import { Trip } from '../models/Trip'; // Adjust the path if needed
 import { ArchivedTrip } from '../models/ArchiveTrip'; // Adjust the path if needed
 import mongoose from 'mongoose';
+import { DEFAULT_TRIP_IMAGE_URL, DEFAULT_TRIP_IMAGE_ID, removeOldImage } from '../helpers/cloudinaryHelper';
 
 const router = express.Router();
-
 // POST /trips/create - Create a new trip
 router.post('/create', async (req: Request, res: Response) => {
   try {
-    const { name, location, description, images, tags, createdBy } = req.body;
+    const { name, location, description, tags, createdBy } = req.body;
 
     // Basic validation for required fields
     if (!name || !location || !location.address || !location.coordinates || !createdBy) {
@@ -20,7 +20,10 @@ router.post('/create', async (req: Request, res: Response) => {
       name,
       location,
       description,
-      images,
+      main_image: {
+        url: DEFAULT_TRIP_IMAGE_URL,
+        image_id: DEFAULT_TRIP_IMAGE_ID,
+      },
       tags,
       createdBy,
     });
@@ -35,6 +38,38 @@ router.post('/create', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/trips/list-by-ids?ids=id1,id2,id3
+router.get('/list-by-ids', async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.query;
+    if (!ids) {
+      return res.status(400).json({ error: 'No ids provided' });
+    }
+
+    // Convert the comma-separated string to an array of strings.
+    const idsArray = typeof ids === 'string' ? ids.split(',') : [];
+
+    // Query for trips. If Trip is properly typed, you can cast the result.
+    const trips = await Trip.find({ _id: { $in: idsArray } });
+
+    // Create a mapping from trip _id to trip object.
+    const tripMap: { [key: string]: any } = {};
+    trips.forEach((trip) => {
+      // Cast trip._id to any so we can call toString() on it.
+      const idStr = (trip._id as any).toString();
+      tripMap[idStr] = trip;
+    });
+
+    // Map over the original idsArray to create a result array that preserves duplicates and order.
+    const result = idsArray.map((id) => tripMap[id]).filter((trip) => trip);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error fetching trips:', error);
+    return res.status(500).json({ error: 'Internal Server Error', details: error });
+  }
+});
+
 // GET /api/trips/all - Retrieve all trips
 router.get('/all', async (_req: Request, res: Response) => {
   try {
@@ -46,6 +81,52 @@ router.get('/all', async (_req: Request, res: Response) => {
   }
 });
 
+router.post('/:id/update', async (req, res) => {
+  const tripId = req.params.id;
+  const updateData = req.body;
+
+  try {
+    // Update the trip document with the provided fields.
+    const updatedTrip = await Trip.findByIdAndUpdate(tripId, updateData, {
+      new: true, // Return the updated document.
+      runValidators: true, // Ensure updates meet schema validations.
+    });
+
+    if (!updatedTrip) {
+      return res.status(404).json({ error: 'Trip not found.' });
+    }
+
+    res.json(updatedTrip);
+  } catch (error) {
+    console.error('Error updating trip:', error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+router.delete('/:id/delete', async (req: Request, res: Response) => {
+  try {
+    const tripId = req.params.id;
+
+    // Find the group by its ID.
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Delete the group.
+    const deletedTrip = await Trip.findByIdAndDelete(tripId);
+    if (!deletedTrip) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Notify all group members (except the creator) that the group has been deleted.
+
+    return res.status(200).json({ message: 'Trip deleted successfully', trip: deletedTrip });
+  } catch (err) {
+    console.error('Error deleting group:', err);
+    return res.status(500).json({ error: 'Internal Server Error', details: err });
+  }
+});
 // GET /api/trips/:id - Retrieve a specific trip by its ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -155,6 +236,18 @@ router.post('/unarchive/:id', async (req: Request, res: Response) => {
 // DELETE /trips/archive/clear - Delete all archived trips
 router.delete('/archive/clear', async (_req: Request, res: Response) => {
   try {
+    const archivedTrips = await ArchivedTrip.find({});
+
+    for (const trip of archivedTrips) {
+      const imageId = trip.main_image?.image_id;
+      if (imageId && imageId !== DEFAULT_TRIP_IMAGE_ID) {
+        await removeOldImage(imageId, DEFAULT_TRIP_IMAGE_ID);
+      }
+
+      for (const image of trip.images || []) {
+        await removeOldImage(image.image_id);
+      }
+    }
     await ArchivedTrip.deleteMany({});
     res.status(200).json({ message: 'All archived trips cleared' });
   } catch (error: any) {
@@ -167,9 +260,21 @@ router.delete('/archive/clear', async (_req: Request, res: Response) => {
 router.delete('/archive/:id', async (req: Request, res: Response) => {
   try {
     const archivedTripId = req.params.id;
+    const trip = await ArchivedTrip.findById({ archivedTripId });
+    if (!trip) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
     const result = await ArchivedTrip.deleteOne({ _id: archivedTripId });
     if (result.deletedCount === 0) {
       return res.status(404).json({ message: 'Archived trip not found' });
+    }
+    const imageId = trip.main_image?.image_id;
+    if (imageId && imageId !== DEFAULT_TRIP_IMAGE_ID) {
+      await removeOldImage(imageId, DEFAULT_TRIP_IMAGE_ID);
+    }
+
+    for (const image of trip.images || []) {
+      await removeOldImage(image.image_id);
     }
     return res.status(200).json({ message: 'Archived trip deleted successfully' });
   } catch (error: any) {

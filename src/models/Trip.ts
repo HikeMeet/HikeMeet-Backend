@@ -1,4 +1,13 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
+import { removeOldImage } from '../helpers/cloudinaryHelper';
+
+export interface IImageModel {
+  url: string;
+  image_id: string;
+  type?: 'image' | 'video';
+  video_sceenshot_url?: string;
+  delete_token?: string;
+}
 
 export interface ITrip extends Document {
   name: string;
@@ -7,12 +16,24 @@ export interface ITrip extends Document {
     coordinates: [number, number]; // [longitude, latitude]
   };
   description?: string;
-  images?: string[];
+  images?: IImageModel[];
+  main_image?: IImageModel;
   tags?: string[];
   createdBy: mongoose.Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
+
+export const ImageModalSchema = new Schema<IImageModel>(
+  {
+    url: { type: String },
+    image_id: { type: String },
+    type: { type: String, enum: ['image', 'video'] },
+    video_sceenshot_url: { type: String },
+    delete_token: { type: String },
+  },
+  { _id: false },
+);
 
 type ITripModel = Model<ITrip>;
 
@@ -28,11 +49,35 @@ const tripSchema = new Schema(
       },
     },
     description: { type: String },
-    images: [{ type: String }],
-    tags: [{ type: String }],
+    images: [ImageModalSchema],
+    main_image: ImageModalSchema,
+    tags: [{ type: String, index: true }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true },
 );
+
+tripSchema.pre('findOneAndDelete', async function (next) {
+  const docToDelete = await this.model.findOne(this.getFilter());
+
+  if (!docToDelete) return next();
+
+  // Remove each image in images[]
+  if (docToDelete.images && docToDelete.images.length > 0) {
+    for (const img of docToDelete.images) {
+      const publicId = img.image_id;
+      if (publicId) {
+        await removeOldImage(publicId);
+      }
+    }
+  }
+
+  // Remove main image
+  if (docToDelete.main_image && docToDelete.main_image.image_id) {
+    await removeOldImage(docToDelete.main_image.image_id);
+  }
+
+  next();
+});
 
 export const Trip: ITripModel = model<ITrip, ITripModel>('Trip', tripSchema);
