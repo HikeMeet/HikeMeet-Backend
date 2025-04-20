@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
 import mongoose from 'mongoose';
+import { notifyPostLiked } from '../helpers/notifications';
 
 const router = express.Router();
 
@@ -315,6 +316,9 @@ router.post('/:id/like', async (req: Request, res: Response) => {
     await User.findByIdAndUpdate(post.author, {
       $inc: { 'social.total_likes': 1 },
     });
+
+    // 6) Persist & send a notification to the post author
+    await notifyPostLiked(post.author, userId, postId);
 
     res.status(200).json({ message: 'Post liked successfully', likes: post.likes });
   } catch (error) {
