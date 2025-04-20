@@ -73,6 +73,12 @@ export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId
     type: 'post_like',
     title: 'Your post was liked!',
     body: `${likingUser.username} liked your post.`,
-    data: { screen: 'PostPage', params: { postId } },
+    data: {
+      name: 'PostStack',
+      params: {
+        screen: 'PostPage',
+        params: { postId },
+      },
+    },
   });
 }
