@@ -36,7 +36,6 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
     const gid = opts.data?.groupId;
     const group = await Group.findById(gid).select('name imageUrl').lean();
     if (group) {
-      console.log('group: ', group);
       groupInfo.group = {
         id: group._id.toString(),
         name: group.name,
