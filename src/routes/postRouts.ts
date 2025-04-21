@@ -2,23 +2,22 @@ import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
 import mongoose from 'mongoose';
+import { notifyCommentLiked, notifyPostCommented, notifyPostCreateInGroup, notifyPostLiked, notifyPostShared } from '../helpers/notifications';
 
 const router = express.Router();
 
 router.post('/create', async (req: Request, res: Response) => {
   try {
-    // Destructure the expected fields from the request body.
-    // We assume `images` is an array of media objects sent from the frontend.
     const { author, content, images, attached_trips, attached_groups, type, privacy, in_group } = req.body;
 
-    // Create a new post using the provided data.
+    // 1) Create the post
     const newPost = await Post.create({
       author,
       in_group: in_group || undefined,
       content,
-      images: images || [], // Expecting an array of IImageModel objects
+      images: images || [],
       attached_trips: attached_trips || undefined,
-      attached_groups: attached_groups || undefined,
+      attached_groups,
       likes: [],
       shares: [],
       saves: [],
@@ -28,10 +27,15 @@ router.post('/create', async (req: Request, res: Response) => {
       privacy: privacy || 'public',
     });
 
-    res.status(201).json({ message: 'Post created successfully', post: newPost });
+    // 2) If this was in a group, notify the other members
+    if (in_group && newPost._id) {
+      await notifyPostCreateInGroup(new mongoose.Types.ObjectId(in_group), new mongoose.Types.ObjectId(author), newPost._id.toString());
+    }
+    // 3) Respond
+    return res.status(201).json({ message: 'Post created successfully', post: newPost });
   } catch (error) {
     console.error('Error creating post:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -179,6 +183,17 @@ router.post('/share', async (req: Request, res: Response) => {
     });
     await Post.findByIdAndUpdate(finalOriginalPostId, { $addToSet: { shares: author } });
 
+    // Notify original author
+    const orig = await Post.findById(original_post).select('author');
+    if (orig?.author && sharedPostDoc._id) {
+      await notifyPostShared(
+        new mongoose.Types.ObjectId(orig.author.toString()),
+        new mongoose.Types.ObjectId(author),
+        sharedPostDoc._id.toString(),
+        in_group,
+      );
+    }
+
     // Populate fields.
     const sharedPost = await Post.findById(sharedPostDoc._id)
       .populate({ path: 'author', select: 'username profile_picture' })
@@ -315,6 +330,9 @@ router.post('/:id/like', async (req: Request, res: Response) => {
     await User.findByIdAndUpdate(post.author, {
       $inc: { 'social.total_likes': 1 },
     });
+
+    // 6) Persist & send a notification to the post author
+    await notifyPostLiked(post.author, userId, postId);
 
     res.status(200).json({ message: 'Post liked successfully', likes: post.likes });
   } catch (error) {
@@ -460,6 +478,19 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
 
     await post.save();
 
+    // Get the newly added comment’s ID
+    const addedComment = post.comments[post.comments.length - 1];
+
+    if (addedComment._id) {
+      //Notify the post’s author
+      await notifyPostCommented(
+        new mongoose.Types.ObjectId(post.author.toString()),
+        new mongoose.Types.ObjectId(userId),
+        postId,
+        addedComment._id.toString(),
+      );
+    }
+
     const postRespond = await Post.findById(postId)
       .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture' } })
       .exec();
@@ -477,6 +508,7 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
   }
 });
 
+// Update the comment text
 router.post('/:postId/comment/:commentId', async (req: Request, res: Response) => {
   try {
     const { postId, commentId } = req.params;
@@ -562,13 +594,16 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
     }
 
     // Check if the user already liked the comment
-    if (comment.liked_by.some((id: any) => id.toString() === userId)) {
+    if (comment.liked_by.some((id: mongoose.Types.ObjectId) => id.toString() === userId)) {
       return res.status(400).json({ error: 'Comment already liked by this user' });
     }
 
     // Add userId to the liked_by array
     comment.liked_by.push(userId);
     await post.save();
+
+    // Notify the comment’s author
+    await notifyCommentLiked(comment.user, userId, postId, commentId);
 
     const populatedComment = await Post.findById(postId)
       .select({ comments: { $elemMatch: { _id: commentId } } })

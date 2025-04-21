@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
 import mongoose from 'mongoose';
 import { DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL } from '../helpers/cloudinaryHelper';
+import { authenticate } from '../middlewares/authenticate';
 
 const router = express.Router();
 
@@ -10,8 +11,20 @@ router.post('/insert', async (req: Request, res: Response) => {
   try {
     console.log('inserting');
     // Extract user data from the request body
-    const { username, email, first_name, last_name, gender, birth_date, /*profile_picture,*/ bio, facebook_link, instagram_link, role, firebase_id } =
-      req.body;
+    const {
+      username,
+      email,
+      first_name,
+      last_name,
+      gender,
+      birth_date,
+      /*profile_picture,*/ bio,
+      facebook_link,
+      instagram_link,
+      role,
+      firebase_id,
+      pushTokens,
+    } = req.body;
 
     // Validate required fields
     const requiredFields = ['username', 'email', 'first_name', 'last_name', 'firebase_id'];
@@ -73,6 +86,7 @@ router.post('/insert', async (req: Request, res: Response) => {
       },
       created_on: new Date(),
       updated_on: new Date(),
+      pushTokens: pushTokens || [],
     });
 
     // Save the user to the database
@@ -117,6 +131,44 @@ router.get('/partial-all', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching partial user data:', error);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// POST /api/user/register-token
+// Body: { token: string }
+router.post('/register-token', authenticate, async (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+  try {
+    if (!token) {
+      return res.status(400).json({ error: 'Missing token in request body' });
+    }
+    if (!req.user) {
+      return res.status(404).json({ error: 'Missing user data' });
+    }
+    // Add to pushTokens array only if it doesn't already exist
+    await User.findOneAndUpdate({ firebase_id: req.user.uid }, { $addToSet: { pushTokens: token } });
+    return res.sendStatus(204);
+  } catch (err) {
+    console.error('Error registering push token:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// DELETE /api/user/unregister-token
+router.delete('/unregister-token', authenticate, async (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+  if (!token) {
+    return res.status(400).json({ error: 'Missing token in request body' });
+  }
+  try {
+    if (!req.user) {
+      return res.status(404).json({ error: 'Missing user data' });
+    }
+    await User.findOneAndUpdate({ firebase_id: req.user.uid }, { $pull: { pushTokens: token } });
+    return res.sendStatus(204);
+  } catch (err) {
+    console.error('Error unregistering push token:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

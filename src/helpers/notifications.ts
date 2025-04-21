@@ -1,0 +1,266 @@
+// services/notificationService.ts
+import mongoose from 'mongoose';
+import { Notification, INotification } from '../models/Notification';
+import { User } from '../models/User';
+import Expo, { ExpoPushMessage } from 'expo-server-sdk';
+import { Group } from '../models/Group';
+
+const expo = new Expo();
+interface CreateNotificationOpts {
+  to: mongoose.Types.ObjectId;
+  from?: mongoose.Types.ObjectId;
+  type: string;
+  title: string;
+  body: string;
+  data?: Record<string, any>;
+}
+export async function createNotification(opts: CreateNotificationOpts): Promise<INotification> {
+  const noteId = new mongoose.Types.ObjectId();
+
+  // 2) If there’s a triggering user, lookup their display info
+  const actorInfo: Record<string, any> = {};
+  if (opts.from) {
+    const actor = await User.findById(opts.from).select('username profile_picture.url').lean();
+    if (actor) {
+      actorInfo.actor = {
+        id: actor._id.toString(),
+        username: actor.username,
+        profileImage: actor.profile_picture?.url,
+      };
+    }
+  }
+  // 2) If this is a group‑related notification, pull in group details
+  let groupInfo: Record<string, any> = {};
+
+  if (opts.type.includes('group') && opts.data?.groupId) {
+    const gid = opts.data?.groupId;
+    const group = await Group.findById(gid).select('name imageUrl').lean();
+    if (group) {
+      groupInfo.group = {
+        id: group._id.toString(),
+        name: group.name,
+        imageUrl: group.main_image?.url,
+      };
+    }
+  }
+
+  // 2) Merge in whatever data the caller passed, plus our `id`
+  const fullData = {
+    ...(opts.data ?? {}), // e.g. { navigation: { … } }
+    id: noteId.toString(), // always last so it wins
+    ...actorInfo, // adds { actor: { … } } if present
+    ...groupInfo, // { group: { … } } if applicable
+  };
+  console.log('fullData: ', fullData);
+  // 1) Create the notification document
+  const note = await Notification.create({
+    _id: noteId,
+    to: opts.to,
+    from: opts.from,
+    type: opts.type,
+    title: opts.title,
+    body: opts.body,
+    data: fullData,
+    read: false,
+    created_on: new Date(),
+  });
+
+  // 2) Increment unreadNotifications on the recipient
+  await User.updateOne({ _id: opts.to }, { $inc: { unreadNotifications: 1 } });
+
+  // 3) Send push via Expo
+  const user = await User.findById(opts.to).select('pushTokens');
+  if (user?.pushTokens?.length) {
+    // Build messages, filtering out any non‑Expo tokens
+    const messages: ExpoPushMessage[] = user.pushTokens.filter(Expo.isExpoPushToken).map((token) => {
+      // if we have an actor username, prefix it
+      const username = actorInfo.actor?.username;
+      const bodyText = username ? `${username} ${opts.body}` : opts.body;
+
+      return {
+        to: token,
+        sound: 'default',
+        title: opts.title,
+        body: bodyText,
+        data: fullData,
+      };
+    });
+
+    // Chunk them into batches of 100 (Expo limit) and send
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      try {
+        const receipts = await expo.sendPushNotificationsAsync(chunk);
+        console.log('Push receipts:', receipts);
+      } catch (err) {
+        console.error('Error sending Expo push:', err);
+      }
+    }
+  } else {
+    console.warn('No Expo push tokens found for user', opts.to.toString());
+  }
+
+  return note;
+}
+
+export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId, likingUserId: mongoose.Schema.Types.ObjectId, postId: string) {
+  // 1) Load only the username
+  const likingUser = await User.findById(likingUserId).select('username');
+  if (!likingUser) return;
+
+  // 2) Delegate to your core helper
+  return createNotification({
+    to: new mongoose.Types.ObjectId(postAuthor.toString()),
+    from: new mongoose.Types.ObjectId(likingUserId.toString()),
+    type: 'post_like',
+    title: 'Your post was liked!',
+    body: 'liked your post.',
+    data: {
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId },
+        },
+      },
+    },
+  });
+}
+
+// Notify every other member of a group that a new post was created.
+export async function notifyPostCreateInGroup(groupId: mongoose.Types.ObjectId, authorId: mongoose.Types.ObjectId, postId: string): Promise<void> {
+  // 1) Load group info
+  const group = await Group.findById(groupId).select('name members').lean();
+  if (!group) return;
+
+  // 3) For each member ≠ author, send a notification
+  for (const member of group.members) {
+    if (member.user.toString() === authorId.toString()) continue;
+
+    await createNotification({
+      to: new mongoose.Types.ObjectId(member.user.toString()),
+      from: authorId,
+      type: 'post_create_in_group',
+      title: `New post in ${group.name}`,
+      body: `added a post to `,
+      data: {
+        groupId: groupId.toString(),
+        navigation: {
+          name: 'PostStack',
+          params: {
+            screen: 'PostPage',
+            params: { postId },
+          },
+        },
+      },
+    });
+  }
+}
+
+// Notify original author that their post was shared.
+// If inGroupId is provided, sends 'post_shared_in_group'.
+export async function notifyPostShared(
+  postAuthorId: mongoose.Types.ObjectId,
+  sharingUserId: mongoose.Types.ObjectId,
+  newPostId: string,
+  inGroupId?: string,
+): Promise<void> {
+  if (postAuthorId.toString() === sharingUserId.toString()) {
+    return;
+  }
+
+  const sharer = await User.findById(sharingUserId).select('username').lean();
+  if (!sharer) return;
+
+  const isGroup = !!inGroupId;
+
+  await createNotification({
+    to: postAuthorId,
+    from: sharingUserId,
+    type: isGroup ? 'post_shared_in_group' : 'post_shared',
+    title: isGroup ? 'Your post was shared in a group!' : 'Your post was shared!',
+    body: isGroup ? 'shared your post in the group ' : 'shared your post.',
+    data: {
+      groupId: isGroup ? inGroupId : null,
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId: newPostId },
+        },
+      },
+    },
+  });
+}
+
+//Notify a post’s author that someone commented on their post.
+//Skips notifying if the commenter is also the author.
+export async function notifyPostCommented(
+  postAuthorId: mongoose.Types.ObjectId,
+  commentingUserId: mongoose.Types.ObjectId,
+  postId: string,
+  commentId: string,
+): Promise<void> {
+  // 1) Don’t notify yourself
+  if (postAuthorId.toString() === commentingUserId.toString()) {
+    return;
+  }
+
+  // 2) Load commenter’s username
+  const commenter = await User.findById(commentingUserId).select('username').lean();
+  if (!commenter) return;
+
+  // 3) Fire off notification
+  await createNotification({
+    to: postAuthorId,
+    from: commentingUserId,
+    type: 'post_comment',
+    title: 'New comment on your post!',
+    body: 'commented on your post.',
+    data: {
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId },
+        },
+      },
+      commentId, // so front‑end can scroll to it if desired
+    },
+  });
+}
+
+export async function notifyCommentLiked(
+  commentAuthorId: mongoose.Types.ObjectId,
+  likingUserId: mongoose.Types.ObjectId,
+  postId: string,
+  commentId: string,
+): Promise<void> {
+  // 1) Don’t notify yourself
+  if (commentAuthorId.toString() === likingUserId.toString()) {
+    return;
+  }
+
+  // 2) Load the liker’s username
+  const liker = await User.findById(likingUserId).select('username').lean();
+  if (!liker) return;
+
+  // 3) Send the notification
+  await createNotification({
+    to: commentAuthorId,
+    from: likingUserId,
+    type: 'comment_like',
+    title: 'Someone liked your comment!',
+    body: 'liked your comment.',
+    data: {
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId },
+          commentId,
+        },
+      },
+    },
+  });
+}

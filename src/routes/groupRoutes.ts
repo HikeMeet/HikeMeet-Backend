@@ -3,7 +3,7 @@ import { Group } from '../models/Group';
 import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
-import { Notification } from '../models/Notifications';
+import { NotificationOld } from '../models/Notifications';
 import { uploadImagesGeneric } from '../helpers/imagesHelper';
 import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL, removeOldImage, upload } from '../helpers/cloudinaryHelper';
 const router = express.Router();
@@ -294,7 +294,7 @@ router.post('/:id/update', async (req: Request, res: Response) => {
     // Notify all group members (except the updater) of the update.
     for (const member of updatedGroup.members) {
       if (member.user.toString() !== updated_by) {
-        const notification = new Notification({
+        const notification = new NotificationOld({
           user: member.user,
           type: 'group_updated',
           group: updatedGroup._id,
@@ -373,7 +373,7 @@ router.post('/:groupId/invite/:userId', async (req: Request, res: Response) => {
     notificationData.message = `${triggerName} has invited you to join the group "${group.name}".`;
 
     // Create and save the notification
-    const notification = new Notification(notificationData);
+    const notification = new NotificationOld(notificationData);
     await notification.save();
 
     return res.status(200).json({ message: 'Invitation sent and notification created', group });
@@ -407,7 +407,7 @@ router.post('/:groupId/cancel-invite/:userId', async (req: Request, res: Respons
     }
 
     // Fetch the invitation notification (if exists) to determine the inviter
-    const inviteNotification = await Notification.findOne({
+    const inviteNotification = await NotificationOld.findOne({
       user: new mongoose.Types.ObjectId(userId),
       type: 'group_invite',
       group: group._id,
@@ -418,7 +418,7 @@ router.post('/:groupId/cancel-invite/:userId', async (req: Request, res: Respons
     const updatedGroup = await group.save();
 
     // Remove the corresponding invitation notification
-    await Notification.deleteOne({
+    await NotificationOld.deleteOne({
       user: new mongoose.Types.ObjectId(userId),
       type: 'group_invite',
       group: group._id,
@@ -432,7 +432,7 @@ router.post('/:groupId/cancel-invite/:userId', async (req: Request, res: Respons
       const declinedUser = await User.findById(userId);
       const declinedUserName = declinedUser ? declinedUser.username : 'The user';
 
-      const declineNotification = new Notification({
+      const declineNotification = new NotificationOld({
         user: inviteNotification.user_triggered, // The inviter gets notified
         type: 'group_invite_declined',
         group: group._id,
@@ -485,7 +485,7 @@ router.post('/:groupId/accept-invite/:userId', async (req: Request, res: Respons
     const updatedGroup = await group.save();
 
     // Remove the invitation notification for this invited user
-    const inviteNotification = await Notification.findOneAndDelete({
+    const inviteNotification = await NotificationOld.findOneAndDelete({
       user: new mongoose.Types.ObjectId(userId),
       type: 'group_invite',
       group: group._id,
@@ -497,7 +497,7 @@ router.post('/:groupId/accept-invite/:userId', async (req: Request, res: Respons
       const acceptedUser = await User.findById(userId);
       const acceptedUserName = acceptedUser ? acceptedUser.username : 'A user';
 
-      const acceptedNotification = new Notification({
+      const acceptedNotification = new NotificationOld({
         user: inviteNotification.user_triggered, // notify the inviter
         type: 'group_invite_accepted',
         group: group._id,
@@ -556,7 +556,7 @@ router.post('/:groupId/remove-member/:userId', async (req: Request, res: Respons
     const updatedGroup = await group.save();
 
     // Create a notification for the removed member
-    const removalNotification = new Notification({
+    const removalNotification = new NotificationOld({
       user: new mongoose.Types.ObjectId(userId),
       type: 'group_removed',
       group: group._id,
@@ -632,7 +632,7 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
 
     // Loop over each admin to create a notification
     for (const admin of adminMembers) {
-      const adminNotification = new Notification({
+      const adminNotification = new NotificationOld({
         user: admin.user,
         type: notificationType,
         group: group._id,
@@ -697,7 +697,7 @@ router.post('/:groupId/approve-join/:userId', async (req: Request, res: Response
     const adminName = adminUser ? adminUser.username : 'An admin';
 
     // Create a notification for the user whose join request was approved.
-    const approvedNotification = new Notification({
+    const approvedNotification = new NotificationOld({
       user: new mongoose.Types.ObjectId(userId),
       type: 'group_join_approved',
       group: group._id,
@@ -709,7 +709,7 @@ router.post('/:groupId/approve-join/:userId', async (req: Request, res: Response
     // Loop over each admin to remove notification
     const adminMembers = group.members.filter((member) => member.role === 'admin');
     for (const admin of adminMembers) {
-      await Notification.deleteMany({
+      await NotificationOld.deleteMany({
         group: group._id,
         type: 'group_join_request',
         user: admin.user,
@@ -768,7 +768,7 @@ router.post('/:groupId/cancel-join/:userId', async (req: Request, res: Response)
 
       // Loop over each admin to remove notification
       for (const admin of adminMembers) {
-        await Notification.deleteMany({
+        await NotificationOld.deleteMany({
           group: group._id,
           type: 'group_join_request',
           user: admin.user,
@@ -781,7 +781,7 @@ router.post('/:groupId/cancel-join/:userId', async (req: Request, res: Response)
       const adminUser = await User.findById(cancelled_by);
       const adminName = adminUser ? adminUser.username : 'An admin';
 
-      const declineNotification = new Notification({
+      const declineNotification = new NotificationOld({
         user: new mongoose.Types.ObjectId(userId),
         type: 'group_join_request_declined',
         group: group._id,
@@ -879,7 +879,7 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     }
 
     // Optionally, remove any notifications related to this group.
-    await Notification.deleteMany({ group: group._id });
+    await NotificationOld.deleteMany({ group: group._id });
 
     // Fetch the group creator's details (for notification message)
     const creator = await User.findById(deleted_by);
@@ -888,7 +888,7 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     // Notify all group members (except the creator) that the group has been deleted.
     for (const memberId of memberIds) {
       if (memberId !== deleted_by) {
-        const notification = new Notification({
+        const notification = new NotificationOld({
           user: new mongoose.Types.ObjectId(memberId),
           type: 'group_deleted',
           group: group._id,
