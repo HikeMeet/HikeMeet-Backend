@@ -13,16 +13,37 @@ interface CreateNotificationOpts {
   body: string;
   data?: Record<string, any>;
 }
-
 export async function createNotification(opts: CreateNotificationOpts): Promise<INotification> {
+  const noteId = new mongoose.Types.ObjectId();
+
+  // 2) If there’s a triggering user, lookup their display info
+  let actorInfo: Record<string, any> = {};
+  if (opts.from) {
+    const actor = await User.findById(opts.from).select('username profile_picture.url').lean();
+    if (actor) {
+      actorInfo.actor = {
+        id: actor._id.toString(),
+        username: actor.username,
+        profileImage: actor.profile_picture?.url,
+      };
+    }
+  }
+
+  // 2) Merge in whatever data the caller passed, plus our `id`
+  const fullData = {
+    ...(opts.data ?? {}), // e.g. { navigation: { … } }
+    id: noteId.toString(), // always last so it wins
+    ...actorInfo, // adds { actor: { … } } if present
+  };
   // 1) Create the notification document
   const note = await Notification.create({
+    _id: noteId,
     to: opts.to,
     from: opts.from,
     type: opts.type,
     title: opts.title,
     body: opts.body,
-    data: opts.data,
+    data: fullData,
     read: false,
     created_on: new Date(),
   });
@@ -34,15 +55,19 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
   const user = await User.findById(opts.to).select('pushTokens');
   if (user?.pushTokens?.length) {
     // Build messages, filtering out any non‑Expo tokens
-    const messages: ExpoPushMessage[] = user.pushTokens
-      .filter((token) => Expo.isExpoPushToken(token))
-      .map((token) => ({
+    const messages: ExpoPushMessage[] = user.pushTokens.filter(Expo.isExpoPushToken).map((token) => {
+      // if we have an actor username, prefix it
+      const username = actorInfo.actor?.username;
+      const bodyText = username ? `${username} ${opts.body}` : opts.body;
+
+      return {
         to: token,
         sound: 'default',
         title: opts.title,
-        body: opts.body,
-        data: opts.data,
-      }));
+        body: bodyText,
+        data: fullData,
+      };
+    });
 
     // Chunk them into batches of 100 (Expo limit) and send
     const chunks = expo.chunkPushNotifications(messages);
@@ -72,12 +97,14 @@ export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId
     from: new mongoose.Types.ObjectId(likingUserId.toString()),
     type: 'post_like',
     title: 'Your post was liked!',
-    body: `${likingUser.username} liked your post.`,
+    body: 'liked your post.',
     data: {
-      name: 'PostStack',
-      params: {
-        screen: 'PostPage',
-        params: { postId },
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId },
+        },
       },
     },
   });

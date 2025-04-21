@@ -138,13 +138,15 @@ router.get('/partial-all', async (_req: Request, res: Response) => {
 // Body: { token: string }
 router.post('/register-token', authenticate, async (req: Request, res: Response) => {
   const { token } = req.body as { token?: string };
-  if (!token) {
-    return res.status(400).json({ error: 'Missing token in request body' });
-  }
-
   try {
+    if (!token) {
+      return res.status(400).json({ error: 'Missing token in request body' });
+    }
+    if (!req.user) {
+      return res.status(404).json({ error: 'Missing user data' });
+    }
     // Add to pushTokens array only if it doesn't already exist
-    await User.findOneAndUpdate({ firebase_id: req.user!.uid }, { $addToSet: { pushTokens: token } });
+    await User.findOneAndUpdate({ firebase_id: req.user.uid }, { $addToSet: { pushTokens: token } });
     return res.sendStatus(204);
   } catch (err) {
     console.error('Error registering push token:', err);
@@ -159,7 +161,10 @@ router.delete('/unregister-token', authenticate, async (req: Request, res: Respo
     return res.status(400).json({ error: 'Missing token in request body' });
   }
   try {
-    await User.findOneAndUpdate({ firebase_id: req.user!.uid }, { $pull: { pushTokens: token } });
+    if (!req.user) {
+      return res.status(404).json({ error: 'Missing user data' });
+    }
+    await User.findOneAndUpdate({ firebase_id: req.user.uid }, { $pull: { pushTokens: token } });
     return res.sendStatus(204);
   } catch (err) {
     console.error('Error unregistering push token:', err);
