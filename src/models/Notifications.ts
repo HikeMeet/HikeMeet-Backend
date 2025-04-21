@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 
-export interface INotificationOld extends Document {
+export interface INotification extends Document {
   user: mongoose.Schema.Types.ObjectId; // The recipient of the notification
   type: 'group_invite' | 'friend_request' | string;
   group?: mongoose.Schema.Types.ObjectId; // Optional, if this notification relates to a group
@@ -11,9 +11,9 @@ export interface INotificationOld extends Document {
   updated_at: Date;
 }
 
-type INotificationModel = Model<INotificationOld>;
+type INotificationModel = Model<INotification>;
 
-const notificationOldSchema = new Schema<INotificationOld>(
+const notificationSchema = new Schema<INotification>(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     type: { type: String, required: true },
@@ -25,4 +25,4 @@ const notificationOldSchema = new Schema<INotificationOld>(
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
 );
 
-export const NotificationOld: INotificationModel = model<INotificationOld, INotificationModel>('NotificationOld', notificationOldSchema);
+export const Notification: INotificationModel = model<INotification, INotificationModel>('Notification', notificationSchema);

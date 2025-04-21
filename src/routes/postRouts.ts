@@ -2,22 +2,23 @@ import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
 import mongoose from 'mongoose';
-import { notifyPostCreateInGroup, notifyPostLiked } from '../helpers/notifications';
 
 const router = express.Router();
 
 router.post('/create', async (req: Request, res: Response) => {
   try {
+    // Destructure the expected fields from the request body.
+    // We assume `images` is an array of media objects sent from the frontend.
     const { author, content, images, attached_trips, attached_groups, type, privacy, in_group } = req.body;
 
-    // 1) Create the post
+    // Create a new post using the provided data.
     const newPost = await Post.create({
       author,
       in_group: in_group || undefined,
       content,
-      images: images || [],
+      images: images || [], // Expecting an array of IImageModel objects
       attached_trips: attached_trips || undefined,
-      attached_groups,
+      attached_groups: attached_groups || undefined,
       likes: [],
       shares: [],
       saves: [],
@@ -27,16 +28,10 @@ router.post('/create', async (req: Request, res: Response) => {
       privacy: privacy || 'public',
     });
 
-    // 2) If this was in a group, notify the other members
-    if (in_group && newPost._id) {
-      await notifyPostCreateInGroup(new mongoose.Types.ObjectId(in_group), new mongoose.Types.ObjectId(author), newPost._id.toString());
-    }
-
-    // 3) Respond
-    return res.status(201).json({ message: 'Post created successfully', post: newPost });
+    res.status(201).json({ message: 'Post created successfully', post: newPost });
   } catch (error) {
     console.error('Error creating post:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -320,9 +315,6 @@ router.post('/:id/like', async (req: Request, res: Response) => {
     await User.findByIdAndUpdate(post.author, {
       $inc: { 'social.total_likes': 1 },
     });
-
-    // 6) Persist & send a notification to the post author
-    await notifyPostLiked(post.author, userId, postId);
 
     res.status(200).json({ message: 'Post liked successfully', likes: post.likes });
   } catch (error) {
