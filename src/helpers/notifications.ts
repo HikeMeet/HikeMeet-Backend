@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Notification, INotification } from '../models/Notification';
 import { User } from '../models/User';
 import Expo, { ExpoPushMessage } from 'expo-server-sdk';
+import { Group } from '../models/Group';
 
 const expo = new Expo();
 interface CreateNotificationOpts {
@@ -28,13 +29,30 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
       };
     }
   }
+  // 2) If this is a group‑related notification, pull in group details
+  let groupInfo: Record<string, any> = {};
+
+  if (opts.type.includes('group') && opts.data?.groupId) {
+    const gid = opts.data?.groupId;
+    const group = await Group.findById(gid).select('name imageUrl').lean();
+    if (group) {
+      console.log('group: ', group);
+      groupInfo.group = {
+        id: group._id.toString(),
+        name: group.name,
+        imageUrl: group.main_image?.url,
+      };
+    }
+  }
 
   // 2) Merge in whatever data the caller passed, plus our `id`
   const fullData = {
     ...(opts.data ?? {}), // e.g. { navigation: { … } }
     id: noteId.toString(), // always last so it wins
     ...actorInfo, // adds { actor: { … } } if present
+    ...groupInfo, // { group: { … } } if applicable
   };
+  console.log('fullData: ', fullData);
   // 1) Create the notification document
   const note = await Notification.create({
     _id: noteId,
@@ -108,4 +126,36 @@ export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId
       },
     },
   });
+}
+
+/**
+ * Notify every other member of a group that a new post was created.
+ */
+export async function notifyPostCreateInGroup(groupId: mongoose.Types.ObjectId, authorId: mongoose.Types.ObjectId, postId: string): Promise<void> {
+  // 1) Load group info
+  const group = await Group.findById(groupId).select('name members').lean();
+  if (!group) return;
+
+  // 3) For each member ≠ author, send a notification
+  for (const member of group.members) {
+    if (member.toString() === authorId.toString()) continue;
+
+    await createNotification({
+      to: new mongoose.Types.ObjectId(member.user.toString()),
+      from: authorId,
+      type: 'post_create_in_group',
+      title: `New post in ${group.name}`,
+      body: `added a post to `,
+      data: {
+        groupId: groupId.toString(),
+        navigation: {
+          name: 'PostStack',
+          params: {
+            screen: 'PostPage',
+            params: { postId },
+          },
+        },
+      },
+    });
+  }
 }
