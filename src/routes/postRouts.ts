@@ -31,7 +31,6 @@ router.post('/create', async (req: Request, res: Response) => {
     if (in_group && newPost._id) {
       await notifyPostCreateInGroup(new mongoose.Types.ObjectId(in_group), new mongoose.Types.ObjectId(author), newPost._id.toString());
     }
-
     // 3) Respond
     return res.status(201).json({ message: 'Post created successfully', post: newPost });
   } catch (error) {
