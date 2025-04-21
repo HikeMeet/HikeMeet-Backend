@@ -3,6 +3,7 @@ import { IImageModel, ImageModalSchema } from './Trip';
 import { removeOldImage } from '../helpers/cloudinaryHelper';
 
 export interface IComment {
+  _id?: mongoose.Types.ObjectId; // ← add this
   user: mongoose.Schema.Types.ObjectId;
   text: string;
   created_at: Date;

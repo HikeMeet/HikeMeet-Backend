@@ -127,9 +127,7 @@ export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId
   });
 }
 
-/**
- * Notify every other member of a group that a new post was created.
- */
+// Notify every other member of a group that a new post was created.
 export async function notifyPostCreateInGroup(groupId: mongoose.Types.ObjectId, authorId: mongoose.Types.ObjectId, postId: string): Promise<void> {
   // 1) Load group info
   const group = await Group.findById(groupId).select('name members').lean();
@@ -137,7 +135,7 @@ export async function notifyPostCreateInGroup(groupId: mongoose.Types.ObjectId, 
 
   // 3) For each member ≠ author, send a notification
   for (const member of group.members) {
-    if (member.toString() === authorId.toString()) continue;
+    if (member.user.toString() === authorId.toString()) continue;
 
     await createNotification({
       to: new mongoose.Types.ObjectId(member.user.toString()),
@@ -157,4 +155,112 @@ export async function notifyPostCreateInGroup(groupId: mongoose.Types.ObjectId, 
       },
     });
   }
+}
+
+// Notify original author that their post was shared.
+// If inGroupId is provided, sends 'post_shared_in_group'.
+export async function notifyPostShared(
+  postAuthorId: mongoose.Types.ObjectId,
+  sharingUserId: mongoose.Types.ObjectId,
+  newPostId: string,
+  inGroupId?: string,
+): Promise<void> {
+  if (postAuthorId.toString() === sharingUserId.toString()) {
+    return;
+  }
+
+  const sharer = await User.findById(sharingUserId).select('username').lean();
+  if (!sharer) return;
+
+  const isGroup = !!inGroupId;
+
+  await createNotification({
+    to: postAuthorId,
+    from: sharingUserId,
+    type: isGroup ? 'post_shared_in_group' : 'post_shared',
+    title: isGroup ? 'Your post was shared in a group!' : 'Your post was shared!',
+    body: isGroup ? 'shared your post in the group ' : 'shared your post.',
+    data: {
+      groupId: isGroup ? inGroupId : null,
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId: newPostId },
+        },
+      },
+    },
+  });
+}
+
+//Notify a post’s author that someone commented on their post.
+//Skips notifying if the commenter is also the author.
+export async function notifyPostCommented(
+  postAuthorId: mongoose.Types.ObjectId,
+  commentingUserId: mongoose.Types.ObjectId,
+  postId: string,
+  commentId: string,
+): Promise<void> {
+  // 1) Don’t notify yourself
+  if (postAuthorId.toString() === commentingUserId.toString()) {
+    return;
+  }
+
+  // 2) Load commenter’s username
+  const commenter = await User.findById(commentingUserId).select('username').lean();
+  if (!commenter) return;
+
+  // 3) Fire off notification
+  await createNotification({
+    to: postAuthorId,
+    from: commentingUserId,
+    type: 'post_comment',
+    title: 'New comment on your post!',
+    body: 'commented on your post.',
+    data: {
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId },
+        },
+      },
+      commentId, // so front‑end can scroll to it if desired
+    },
+  });
+}
+
+export async function notifyCommentLiked(
+  commentAuthorId: mongoose.Types.ObjectId,
+  likingUserId: mongoose.Types.ObjectId,
+  postId: string,
+  commentId: string,
+): Promise<void> {
+  // 1) Don’t notify yourself
+  if (commentAuthorId.toString() === likingUserId.toString()) {
+    return;
+  }
+
+  // 2) Load the liker’s username
+  const liker = await User.findById(likingUserId).select('username').lean();
+  if (!liker) return;
+
+  // 3) Send the notification
+  await createNotification({
+    to: commentAuthorId,
+    from: likingUserId,
+    type: 'comment_like',
+    title: 'Someone liked your comment!',
+    body: 'liked your comment.',
+    data: {
+      navigation: {
+        name: 'PostStack',
+        params: {
+          screen: 'PostPage',
+          params: { postId },
+          commentId,
+        },
+      },
+    },
+  });
 }

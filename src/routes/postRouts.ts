@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
 import mongoose from 'mongoose';
-import { notifyPostCreateInGroup, notifyPostLiked } from '../helpers/notifications';
+import { notifyCommentLiked, notifyPostCommented, notifyPostCreateInGroup, notifyPostLiked, notifyPostShared } from '../helpers/notifications';
 
 const router = express.Router();
 
@@ -182,6 +182,17 @@ router.post('/share', async (req: Request, res: Response) => {
       privacy: privacy || 'public',
     });
     await Post.findByIdAndUpdate(finalOriginalPostId, { $addToSet: { shares: author } });
+
+    // Notify original author
+    const orig = await Post.findById(original_post).select('author');
+    if (orig?.author && sharedPostDoc._id) {
+      await notifyPostShared(
+        new mongoose.Types.ObjectId(orig.author.toString()),
+        new mongoose.Types.ObjectId(author),
+        sharedPostDoc._id.toString(),
+        in_group,
+      );
+    }
 
     // Populate fields.
     const sharedPost = await Post.findById(sharedPostDoc._id)
@@ -467,6 +478,19 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
 
     await post.save();
 
+    // Get the newly added comment’s ID
+    const addedComment = post.comments[post.comments.length - 1];
+
+    if (addedComment._id) {
+      //Notify the post’s author
+      await notifyPostCommented(
+        new mongoose.Types.ObjectId(post.author.toString()),
+        new mongoose.Types.ObjectId(userId),
+        postId,
+        addedComment._id.toString(),
+      );
+    }
+
     const postRespond = await Post.findById(postId)
       .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture' } })
       .exec();
@@ -484,6 +508,7 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
   }
 });
 
+// Update the comment text
 router.post('/:postId/comment/:commentId', async (req: Request, res: Response) => {
   try {
     const { postId, commentId } = req.params;
@@ -569,13 +594,16 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
     }
 
     // Check if the user already liked the comment
-    if (comment.liked_by.some((id: any) => id.toString() === userId)) {
+    if (comment.liked_by.some((id: mongoose.Types.ObjectId) => id.toString() === userId)) {
       return res.status(400).json({ error: 'Comment already liked by this user' });
     }
 
     // Add userId to the liked_by array
     comment.liked_by.push(userId);
     await post.save();
+
+    // Notify the comment’s author
+    await notifyCommentLiked(comment.user, userId, postId, commentId);
 
     const populatedComment = await Post.findById(postId)
       .select({ comments: { $elemMatch: { _id: commentId } } })
