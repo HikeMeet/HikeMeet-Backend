@@ -104,6 +104,9 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
 }
 
 export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId, likingUserId: mongoose.Schema.Types.ObjectId, postId: string) {
+  if (postAuthor.toString() === likingUserId.toString()) {
+    return;
+  }
   // 1) Load only the username
   const likingUser = await User.findById(likingUserId).select('username');
   if (!likingUser) return;
