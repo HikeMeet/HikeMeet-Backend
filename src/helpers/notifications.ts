@@ -18,7 +18,7 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
   const noteId = new mongoose.Types.ObjectId();
 
   // 2) If there’s a triggering user, lookup their display info
-  let actorInfo: Record<string, any> = {};
+  const actorInfo: Record<string, any> = {};
   if (opts.from) {
     const actor = await User.findById(opts.from).select('username profile_picture.url').lean();
     if (actor) {
