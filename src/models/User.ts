@@ -24,6 +24,7 @@ export interface IUser extends Document {
     delete_token?: string;
   };
   bio?: string;
+  exp?: number;
   facebook_link?: string;
   instagram_link?: string;
   role: 'user' | 'admin';
@@ -60,6 +61,7 @@ const userSchema = new Schema({
     delete_token: { type: String },
   },
   bio: { type: String },
+  exp: { type: Number },
   facebook_link: { type: String },
   instagram_link: { type: String },
   role: { type: String, required: true, enum: ['user', 'admin'], default: 'user' },
