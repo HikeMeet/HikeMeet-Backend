@@ -40,7 +40,8 @@ export interface IUser extends Document {
   }[];
   trip_history: ITripHistoryEntry[];
   firebase_id: string;
-  created_on: Date;
+  pushTokens: string[];
+  unreadNotifications: number;
   updated_on: Date;
 }
 
@@ -84,6 +85,8 @@ const userSchema = new Schema({
   ],
   trip_history: [tripHistorySchema],
   firebase_id: { type: String },
+  pushTokens: { type: [String], default: [] },
+  unreadNotifications: { type: Number, default: 0 },
   created_on: { type: Date, required: true, default: Date.now },
   updated_on: { type: Date, required: true, default: Date.now },
 });
