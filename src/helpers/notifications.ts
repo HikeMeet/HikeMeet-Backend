@@ -341,3 +341,47 @@ export async function notifyFriendRequestSent(fromUserId: mongoose.Types.ObjectI
     });
   }
 }
+
+// Notify the original requester that their friend request was accepted.
+export async function notifyFriendRequestAccepted(accepterId: mongoose.Types.ObjectId, requesterId: mongoose.Types.ObjectId) {
+  // Don’t notify yourself
+  if (accepterId.toString() === requesterId.toString()) return;
+
+  // 1) Mark the original friend_request as read (if still unread)
+  const original = await Notification.findOneAndUpdate(
+    {
+      to: accepterId,
+      from: requesterId,
+      type: 'friend_request',
+      read: false,
+    },
+    { $set: { read: true } },
+    { new: true },
+  );
+  if (original) {
+    // decrement that user’s unreadNotifications counter
+    await User.updateOne({ _id: accepterId }, { $inc: { unreadNotifications: -1 } });
+  }
+
+  // Load accepter’s display info
+  const accepter = await User.findById(accepterId).select('username profile_picture.url').lean();
+  if (!accepter) return;
+
+  // Build navigation payload to take the requester to the accepter’s profile
+  const navigation = {
+    name: 'AccountStack',
+    params: {
+      screen: 'UserProfile',
+      params: { userId: accepterId.toString() },
+    },
+  };
+
+  await createNotification({
+    to: requesterId,
+    from: accepterId,
+    type: 'friend_accept',
+    title: 'Friend Request Accepted',
+    body: 'accepted your friend request.',
+    data: { navigation },
+  });
+}
