@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User';
 import mongoose from 'mongoose';
+import { notifyFriendRequestSent } from '../helpers/notifications';
 
 const router = express.Router();
 
@@ -126,6 +127,9 @@ router.post('/send-request', async (req: Request, res: Response) => {
     await sender.save();
     await receiver.save();
 
+    // **Send the notification**
+    await notifyFriendRequestSent(currentUserId, targetUserId);
+
     res.status(200).json({ message: 'Friend request sent successfully.' });
   } catch (error) {
     console.error('Error sending friend request:', error);
@@ -246,7 +250,7 @@ router.post('/remove', async (req: Request, res: Response) => {
 });
 
 // Revokek request
-router.post('/revoke-request', async (req: Request, res: Response) => {
+router.post('/decline-request', async (req: Request, res: Response) => {
   try {
     const { currentUserId, targetUserId } = req.body; // currentUserId is the receiver rejecting the request
     if (!currentUserId || !targetUserId) {

@@ -103,6 +103,44 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
   return note;
 }
 
+export async function bumpNotificationTimestamp(notificationId: mongoose.Types.ObjectId | string): Promise<void> {
+  // 1) Update the timestamp and get back the new document
+  const note = await Notification.findByIdAndUpdate(notificationId, { $set: { created_on: new Date() } }, { new: true, lean: true });
+  if (!note) return;
+
+  // 2) (Optionally) increment their unread count again, if you want them to see it as “new”
+  if (note.read) {
+    await Notification.findByIdAndUpdate(notificationId, { $set: { read: false } });
+    await User.updateOne({ _id: note.to }, { $inc: { unreadNotifications: 1 } });
+  }
+
+  // 3) Pull the recipient’s push tokens
+  const user = await User.findById(note.to).select('pushTokens').lean();
+  if (!user?.pushTokens?.length) {
+    console.warn('No Expo push tokens for', note.to.toString());
+    return;
+  }
+
+  // 4) Build and send Expo pushes
+  const messages: ExpoPushMessage[] = user.pushTokens.filter(Expo.isExpoPushToken).map((token) => ({
+    to: token,
+    sound: 'default',
+    title: note.title,
+    body: note.body,
+    data: note.data,
+  }));
+
+  const chunks = expo.chunkPushNotifications(messages);
+  for (const chunk of chunks) {
+    try {
+      const receipts = await expo.sendPushNotificationsAsync(chunk);
+      console.log('Bump push receipts:', receipts);
+    } catch (err) {
+      console.error('Error re‑sending bump push:', err);
+    }
+  }
+}
+
 export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId, likingUserId: mongoose.Schema.Types.ObjectId, postId: string) {
   if (postAuthor.toString() === likingUserId.toString()) {
     return;
@@ -266,4 +304,40 @@ export async function notifyCommentLiked(
       },
     },
   });
+}
+
+// Notify a user that someone has sent them a friend request.
+// Skips notifying if you somehow request yourself.
+export async function notifyFriendRequestSent(fromUserId: mongoose.Types.ObjectId, toUserId: mongoose.Types.ObjectId): Promise<void> {
+  // Don’t notify yourself
+  if (fromUserId.toString() === toUserId.toString()) {
+    return;
+  }
+
+  // Load sender’s display info
+  const sender = await User.findById(fromUserId).select('username profile_picture.url').lean();
+  if (!sender) return;
+
+  // Build navigation payload: take the receiver to the sender’s profile
+  const navigation = {
+    name: 'AccountStack',
+    params: {
+      screen: 'UserProfile',
+      params: { userId: fromUserId.toString() },
+    },
+  };
+
+  const existingNotification = await Notification.findOne({ to: toUserId, from: fromUserId, type: 'friend_request' });
+  if (existingNotification) {
+    await bumpNotificationTimestamp(existingNotification._id as string);
+  } else {
+    await createNotification({
+      to: toUserId,
+      from: fromUserId,
+      type: 'friend_request',
+      title: 'New Friend Request',
+      body: 'sent you a friend request.',
+      data: { navigation },
+    });
+  }
 }
