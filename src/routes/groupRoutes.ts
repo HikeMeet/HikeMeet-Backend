@@ -6,6 +6,8 @@ import { User } from '../models/User';
 import { NotificationOld } from '../models/Notifications';
 import { uploadImagesGeneric } from '../helpers/imagesHelper';
 import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL, removeOldImage, upload } from '../helpers/cloudinaryHelper';
+import { updateUserExp } from '../helpers/expHelper';
+
 const router = express.Router();
 const MAX_IMAGE_COUNT = 5;
 // POST /create - Create a new group
@@ -102,6 +104,10 @@ router.post('/create', async (req: Request, res: Response) => {
     });
 
     const saved_group = await new_group.save();
+
+    // +10 EXP for creating a group
+    await updateUserExp(created_by, 10);
+
     return res.status(201).json(saved_group);
   } catch (err) {
     console.error('Error creating group:', err);
@@ -553,6 +559,12 @@ router.post('/:groupId/remove-member/:userId', async (req: Request, res: Respons
 
     // Remove the member from the group
     group.members.splice(memberIndex, 1);
+
+    // -5 EXP for leaving a group voluntarily
+    if (removed_by === userId) {
+      await updateUserExp(userId, -5);
+    }
+
     const updatedGroup = await group.save();
 
     // Create a notification for the removed member
@@ -623,6 +635,10 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
         created_at: new Date(),
       });
       await group.save();
+
+      // +5 EXP for joining a public group
+      await updateUserExp(userId, 5);
+
       notificationType = 'group_join_request';
       responseMessage = 'Join request sent. Awaiting approval.';
     }
@@ -690,6 +706,9 @@ router.post('/:groupId/approve-join/:userId', async (req: Request, res: Response
         joined_at: new Date(),
       });
       await group.save();
+
+      // +5 EXP for joining a private group (after approval)
+      await updateUserExp(userId, 5);
     }
 
     // Fetch the admin user's details for the notification message.
@@ -877,6 +896,9 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     if (!deletedGroup) {
       return res.status(404).json({ error: 'Group not found' });
     }
+
+    // -10 EXP for deleting a group
+    await updateUserExp(deleted_by, -10);
 
     // Optionally, remove any notifications related to this group.
     await NotificationOld.deleteMany({ group: group._id });
