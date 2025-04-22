@@ -385,3 +385,42 @@ export async function notifyFriendRequestAccepted(accepterId: mongoose.Types.Obj
     data: { navigation },
   });
 }
+
+export async function notifyGroupUpdated(
+  toUserId: mongoose.Types.ObjectId,
+  updatedById: mongoose.Types.ObjectId,
+  groupId: mongoose.Types.ObjectId,
+  changes: Record<string, any>,
+  name: string,
+): Promise<INotification | void> {
+  // Don't notify yourself
+  // if (toUserId.toString() === updatedById.toString()) return;
+
+  // 1) Load updater’s info
+  const updater = await User.findById(updatedById).select('username profile_picture.url').lean();
+  if (!updater) return;
+
+  // 2) Build a human‑readable summary of what changed
+  const fields = Object.keys(changes);
+  const changeList = fields.join(', ');
+  const body = `updated the group (${changeList}).`;
+
+  // 3) Build navigation payload to take members to the group page
+  const navigation = {
+    name: 'GroupsStack',
+    params: {
+      screen: 'GroupPage',
+      params: { groupId: groupId.toString() },
+    },
+  };
+
+  // 4) Delegate to your core creator
+  return createNotification({
+    to: toUserId,
+    from: updatedById,
+    type: 'group_updated',
+    title: `"${name}" updated`,
+    body,
+    data: { navigation, updatedData: changes },
+  });
+}

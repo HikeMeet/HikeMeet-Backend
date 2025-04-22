@@ -129,3 +129,23 @@ mongoose
     console.error('Error connecting to MongoDB:', err.message);
     process.exit(1); // Exit the process if unable to connect
   });
+
+// import { User } from './models/User';
+// import { Notification } from './models/Notification';
+// async function clearAllNotifications() {
+//   try {
+//     // 2) Delete all Notification documents
+//     const delRes = await Notification.deleteMany({});
+//     console.log(`🗑️  Deleted ${delRes.deletedCount} notifications`);
+
+//     // 3) Reset every user's unreadNotifications counter to 0
+//     const updateRes = await User.updateMany({}, { $set: { unreadNotifications: 0 } });
+//     // depending on your Mongoose version the result field may be modifiedCount
+//     const modified = (updateRes as any).modifiedCount ?? (updateRes as any).nModified;
+//     console.log(`✅ Updated ${modified} users' unreadNotifications to 0`);
+//   } catch (err) {
+//     console.error('❌ Error clearing notifications:', err);
+//   }
+// }
+
+// clearAllNotifications();

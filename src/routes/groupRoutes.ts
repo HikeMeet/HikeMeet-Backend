@@ -4,10 +4,9 @@ import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { NotificationOld } from '../models/Notifications';
-import { uploadImagesGeneric } from '../helpers/imagesHelper';
-import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL, removeOldImage, upload } from '../helpers/cloudinaryHelper';
+import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL } from '../helpers/cloudinaryHelper';
+import { notifyGroupUpdated } from '../helpers/notifications';
 const router = express.Router();
-const MAX_IMAGE_COUNT = 5;
 // POST /create - Create a new group
 // TODO: Conditions of creating group if location or name exist?
 router.post('/create', async (req: Request, res: Response) => {
@@ -106,75 +105,6 @@ router.post('/create', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Error creating group:', err);
     return res.status(500).json({ error: 'Internal Server Error', details: err instanceof Error ? err.message : err });
-  }
-});
-
-router.post('/:id/upload-group-images', upload.array('images', MAX_IMAGE_COUNT), async (req: Request, res: Response) => {
-  try {
-    const groupId: string = req.params.id;
-
-    // Find the group by ID.
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
-
-    // Check if files are provided.
-    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-      return res.status(400).json({ error: 'No image files provided' });
-    }
-
-    // Extract buffers from the uploaded files.
-    const buffers: Buffer[] = req.files.map((file: Express.Multer.File) => file.buffer);
-
-    // Use the generic helper to upload images and update the group's images array.
-    const updatedGroup = await uploadImagesGeneric(
-      Group,
-      groupId,
-      buffers,
-      MAX_IMAGE_COUNT, // Maximum allowed images
-      'images', // Field name in Group for additional images
-      'group_images', // Cloudinary folder for group images
-    );
-
-    res.status(200).json(updatedGroup);
-  } catch (error: any) {
-    console.error('Error uploading group images:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-router.delete('/:id/delete-trip-images', async (req: Request, res: Response) => {
-  try {
-    const groupId: string = req.params.id;
-    const { imageIds } = req.body; // Expecting { imageIds: string[] }
-
-    if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
-      return res.status(400).json({ error: 'No image IDs provided' });
-    }
-
-    // Find the trip by ID
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ error: 'group not found' });
-    }
-
-    // Filter the images to remove based on the provided image IDs
-    const imagesToRemove = group.images?.filter((image) => imageIds.includes(image.image_id)) || [];
-
-    // Remove each image from Cloudinary
-    for (const image of imagesToRemove) {
-      await removeOldImage(image.image_id);
-    }
-
-    // Remove the images from the group's images array
-    group.images = group.images?.filter((image) => !imageIds.includes(image.image_id));
-    await group.save();
-
-    res.status(200).json(group);
-  } catch (error: any) {
-    console.error('Error deleting group images:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
@@ -287,22 +217,15 @@ router.post('/:id/update', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    // Fetch the updating user's details for the notification message.
-    const updater = await User.findById(updated_by);
-    const updaterName = updater ? updater.username : 'An admin';
-
-    // Notify all group members (except the updater) of the update.
+    // Notify every member except the updater**
     for (const member of updatedGroup.members) {
-      if (member.user.toString() !== updated_by) {
-        const notification = new NotificationOld({
-          user: member.user,
-          type: 'group_updated',
-          group: updatedGroup._id,
-          message: `The group "${updatedGroup.name}" has been updated by ${updaterName}.`,
-          user_triggered: new mongoose.Types.ObjectId(updated_by),
-        });
-        await notification.save();
-      }
+      await notifyGroupUpdated(
+        new mongoose.Types.ObjectId(member.user.toString()),
+        updated_by,
+        updatedGroup._id as mongoose.Types.ObjectId,
+        updateData,
+        group.name,
+      );
     }
 
     return res.status(200).json(updatedGroup);
