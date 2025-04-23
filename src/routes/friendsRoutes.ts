@@ -171,14 +171,13 @@ router.post('/cancel-request', async (req: Request, res: Response) => {
     await sender.save();
     await receiver.save();
 
-    // ——— NEW: delete the original notification ———
+    // delete the original notification
     const notif = await Notification.findOneAndDelete({
       to: new mongoose.Types.ObjectId(targetUserId),
       from: new mongoose.Types.ObjectId(currentUserId),
       type: 'friend_request',
     });
-    if (notif) {
-      // decrement unread count
+    if (notif && notif.read === false) {
       await User.updateOne({ _id: targetUserId }, { $inc: { unreadNotifications: -1 } });
     }
 
@@ -305,7 +304,7 @@ router.post('/decline-request', async (req: Request, res: Response) => {
       type: 'friend_request',
     });
 
-    if (declinedNote) {
+    if (declinedNote && declinedNote.read === false) {
       // decrement unread counter on the recipient
       await User.updateOne({ _id: currentUserId }, { $inc: { unreadNotifications: -1 } });
     }

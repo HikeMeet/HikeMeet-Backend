@@ -34,7 +34,8 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
 
   if (opts.type.includes('group') && opts.data?.groupId) {
     const gid = opts.data?.groupId;
-    const group = await Group.findById(gid).select('name imageUrl').lean();
+    const group = await Group.findById(gid).select('name main_image').lean();
+    console.log('group: ', group);
     if (group) {
       groupInfo.group = {
         id: group._id.toString(),
@@ -51,7 +52,6 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
     ...actorInfo, // adds { actor: { … } } if present
     ...groupInfo, // { group: { … } } if applicable
   };
-  console.log('fullData: ', fullData);
   // 1) Create the notification document
   const note = await Notification.create({
     _id: noteId,
@@ -75,7 +75,8 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
     const messages: ExpoPushMessage[] = user.pushTokens.filter(Expo.isExpoPushToken).map((token) => {
       // if we have an actor username, prefix it
       const username = actorInfo.actor?.username;
-      const bodyText = username ? `${username} ${opts.body}` : opts.body;
+      const groupName = groupInfo.group?.name;
+      const bodyText = [username, opts.body, groupName].filter(Boolean).join(' ');
 
       return {
         to: token,
@@ -157,6 +158,7 @@ export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId
     title: 'Your post was liked!',
     body: 'liked your post.',
     data: {
+      imageType: 'user',
       navigation: {
         name: 'PostStack',
         params: {
@@ -185,6 +187,7 @@ export async function notifyPostCreateInGroup(groupId: mongoose.Types.ObjectId, 
       title: `New post in ${group.name}`,
       body: `added a post to `,
       data: {
+        imageType: 'user',
         groupId: groupId.toString(),
         navigation: {
           name: 'PostStack',
@@ -222,6 +225,7 @@ export async function notifyPostShared(
     title: isGroup ? 'Your post was shared in a group!' : 'Your post was shared!',
     body: isGroup ? 'shared your post in the group ' : 'shared your post.',
     data: {
+      imageType: 'user',
       groupId: isGroup ? inGroupId : null,
       navigation: {
         name: 'PostStack',
@@ -259,6 +263,7 @@ export async function notifyPostCommented(
     title: 'New comment on your post!',
     body: 'commented on your post.',
     data: {
+      imageType: 'user',
       navigation: {
         name: 'PostStack',
         params: {
@@ -294,6 +299,7 @@ export async function notifyCommentLiked(
     title: 'Someone liked your comment!',
     body: 'liked your comment.',
     data: {
+      imageType: 'user',
       navigation: {
         name: 'PostStack',
         params: {
@@ -337,7 +343,7 @@ export async function notifyFriendRequestSent(fromUserId: mongoose.Types.ObjectI
       type: 'friend_request',
       title: 'New Friend Request',
       body: 'sent you a friend request.',
-      data: { navigation },
+      data: { navigation, imageType: 'user' },
     });
   }
 }
@@ -382,7 +388,7 @@ export async function notifyFriendRequestAccepted(accepterId: mongoose.Types.Obj
     type: 'friend_accept',
     title: 'Friend Request Accepted',
     body: 'accepted your friend request.',
-    data: { navigation },
+    data: { navigation, imageType: 'user' },
   });
 }
 
@@ -394,16 +400,11 @@ export async function notifyGroupUpdated(
   name: string,
 ): Promise<INotification | void> {
   // Don't notify yourself
-  // if (toUserId.toString() === updatedById.toString()) return;
+  if (toUserId.toString() === updatedById.toString()) return;
 
   // 1) Load updater’s info
   const updater = await User.findById(updatedById).select('username profile_picture.url').lean();
   if (!updater) return;
-
-  // 2) Build a human‑readable summary of what changed
-  const fields = Object.keys(changes);
-  const changeList = fields.join(', ');
-  const body = `updated the group (${changeList}).`;
 
   // 3) Build navigation payload to take members to the group page
   const navigation = {
@@ -420,7 +421,245 @@ export async function notifyGroupUpdated(
     from: updatedById,
     type: 'group_updated',
     title: `"${name}" updated`,
-    body,
-    data: { navigation, updatedData: changes },
+    body: `updated the group `,
+    data: { imageType: 'group', groupId, navigation, updatedData: changes },
   });
+}
+
+export async function notifyGroupInvite(toUserId: mongoose.Types.ObjectId, fromUserId: mongoose.Types.ObjectId, groupId: mongoose.Types.ObjectId) {
+  // Don’t notify yourself
+  if (toUserId.toString() === fromUserId.toString()) return;
+
+  // 1) Load inviter’s display info
+  const inviter = await User.findById(fromUserId).select('username profile_picture.url').lean();
+  if (!inviter) return;
+
+  // 2) Build the “you’ve been invited” body
+
+  // 3) Build a navigation payload into the GroupPage
+  const navigation = {
+    name: 'GroupsStack',
+    params: {
+      screen: 'GroupPage',
+      params: { groupId: groupId.toString() },
+    },
+  };
+
+  const existingNotification = await Notification.findOne({ to: toUserId, from: fromUserId, type: 'group_invite' });
+  if (existingNotification) {
+    await bumpNotificationTimestamp(existingNotification._id as string);
+  } else {
+    // 4) Delegate to your core helper
+    return createNotification({
+      to: toUserId,
+      from: fromUserId,
+      type: 'group_invite',
+      title: 'New Group Invitation',
+      body: `invited you to join the group `,
+      data: { groupId, imageType: 'group', navigation },
+    });
+  }
+}
+
+// Notify the inviter that their invite was accepted.
+export async function notifyGroupInviteAccepted(accepterId: mongoose.Types.ObjectId, groupId: mongoose.Types.ObjectId): Promise<void> {
+  // 1) Find the original invite notif addressed to the accepter
+  const inviteNotif = await Notification.findOne({
+    to: accepterId,
+    type: 'group_invite',
+    'data.groupId': groupId,
+  });
+
+  if (!inviteNotif) return;
+
+  // 2) If it was unread, mark it read & decrement their counter
+  if (!inviteNotif.read) {
+    await Notification.findByIdAndUpdate(inviteNotif._id, { read: true });
+    await User.updateOne({ _id: accepterId }, { $inc: { unreadNotifications: -1 } });
+  }
+
+  // 3) Who invited them?
+  const inviterId = inviteNotif.from as mongoose.Types.ObjectId;
+  if (!inviterId) return;
+
+  // 5) Build navigation to take inviter back into the group page
+  const navigation = {
+    name: 'GroupsStack',
+    params: {
+      screen: 'GroupPage',
+      params: { groupId: groupId.toString() },
+    },
+  };
+
+  // 6) Fire off the “invite accepted” notif
+  await createNotification({
+    to: inviterId,
+    from: accepterId,
+    type: 'group_invite_accepted',
+    title: 'Group Invitation Accepted',
+    body: 'accepted your invitation to group ',
+    data: { imageType: 'user', navigation, groupId: groupId.toString() },
+  });
+}
+
+export async function notifyGroupJoined(
+  toUserId: mongoose.Types.ObjectId,
+  joiningUserId: mongoose.Types.ObjectId,
+  groupId: mongoose.Types.ObjectId,
+): Promise<INotification | void> {
+  // 1) don’t notify yourself
+  if (toUserId.equals(joiningUserId)) return;
+
+  // 2) build navigation payload
+  const navigation = {
+    name: 'GroupsStack',
+    params: {
+      screen: 'GroupPage',
+      params: { groupId: groupId.toString() },
+    },
+  };
+
+  // 3) fire core helper
+  return createNotification({
+    to: toUserId,
+    from: joiningUserId,
+    type: 'group_joined',
+    title: 'New Member Joined Group',
+    body: `joined your group `,
+    data: { imageType: 'user', navigation, groupId: groupId.toString() },
+  });
+}
+
+export async function notifyGroupJoinRequest(
+  toUserId: mongoose.Types.ObjectId,
+  joiningUserId: mongoose.Types.ObjectId,
+  groupId: mongoose.Types.ObjectId,
+): Promise<INotification | void> {
+  if (toUserId.equals(joiningUserId)) return;
+
+  const joiner = await User.findById(joiningUserId).select('username profile_picture.url').lean();
+  if (!joiner) return;
+
+  const existingNotification = await Notification.findOne({
+    to: toUserId,
+    from: joiningUserId,
+    type: 'group_join_request',
+    'data.groupId': groupId.toString(),
+  });
+
+  if (existingNotification) {
+    await bumpNotificationTimestamp(existingNotification._id as string);
+  } else {
+    const navigation = {
+      name: 'GroupsStack',
+      params: {
+        screen: 'GroupPage',
+        params: { groupId: groupId.toString() },
+      },
+    };
+
+    return createNotification({
+      to: toUserId,
+      from: joiningUserId,
+      type: 'group_join_request',
+      title: 'New Group Join Request',
+      body: `requested to join your group `,
+      data: { imageType: 'user', navigation, groupId: groupId.toString() },
+    });
+  }
+}
+export async function notifyGroupJoinApproved(
+  toUserId: mongoose.Types.ObjectId,
+  adminId: mongoose.Types.ObjectId,
+  groupId: mongoose.Types.ObjectId,
+  adminMemberIds: mongoose.Types.ObjectId[],
+): Promise<void> {
+  // Don’t notify yourself
+  if (toUserId.equals(adminId)) return;
+
+  // 1) Load the admin’s display info
+  const admin = await User.findById(adminId).select('username profile_picture.url').lean();
+  if (!admin) return;
+
+  // 2) Build navigation payload
+  const navigation = {
+    name: 'GroupsStack' as const,
+    params: {
+      screen: 'GroupPage' as const,
+      params: { groupId: groupId.toString() },
+    },
+  };
+
+  // 3) Create the “approved” notification
+  await createNotification({
+    to: toUserId,
+    from: adminId,
+    type: 'group_join_approved',
+    title: 'Group Join Request Approved',
+    body: `approved your request to join group `,
+    data: { imageType: 'group', navigation, groupId: groupId.toString() },
+  });
+
+  // 1) Only target the admins who actually have an *unread* join-request notif.
+  const unreadAdmins = await Notification.find({
+    to: { $in: adminMemberIds },
+    type: 'group_join_request',
+    'data.groupId': groupId.toString(),
+    read: false,
+  }).distinct('to'); // gives you a list of admin IDs
+
+  // 2) Decrement each of their unreadNotifications by exactly 1, only if their notification is unread
+  await User.updateMany({ _id: { $in: unreadAdmins }, unreadNotifications: { $gt: 0 } }, { $inc: { unreadNotifications: -1 } });
+
+  // 3) Delete *all* join-request notifications for that group
+  await Notification.deleteMany({
+    to: { $in: adminMemberIds.filter((id) => !id.equals(adminId)) },
+    type: 'group_join_request',
+    'data.groupId': groupId.toString(),
+  });
+}
+
+export async function handleJoinRequestCancelled(
+  groupId: mongoose.Types.ObjectId | string,
+  requesterId: mongoose.Types.ObjectId | string,
+  cancelledById: mongoose.Types.ObjectId | string,
+  adminIds: (mongoose.Types.ObjectId | string)[],
+): Promise<void> {
+  // 1) Find all matching “join request” notifications for those admins
+  const notifs = await Notification.find({
+    to: { $in: adminIds.map((id) => new mongoose.Types.ObjectId(id)) },
+    type: 'group_join_request',
+    'data.groupId': groupId.toString(),
+  });
+
+  for (const notif of notifs) {
+    const toStr = notif.to.toString();
+    const wasUnread = notif.read === false;
+
+    // a) If the user themself cancelled:
+    if (cancelledById.toString() === requesterId.toString()) {
+      // delete every admin’s notification
+      if (wasUnread) {
+        await User.updateOne({ _id: notif.to, unreadNotifications: { $gt: 0 } }, { $inc: { unreadNotifications: -1 } });
+      }
+      await Notification.deleteOne({ _id: notif._id });
+
+      // b) Else an admin cancelled on behalf of the user:
+    } else if (cancelledById.toString() === toStr) {
+      // mark *that* admin’s own notification read (if it was unread)
+      if (wasUnread) {
+        await Notification.updateOne({ _id: notif._id }, { $set: { read: true } });
+        await User.updateOne({ _id: notif.to, unreadNotifications: { $gt: 0 } }, { $inc: { unreadNotifications: -1 } });
+      }
+      // leave it in the DB, just marked read
+
+      // c) All the *other* admins:
+    } else {
+      // delete their stale notifications
+      if (wasUnread) {
+        await User.updateOne({ _id: notif.to, unreadNotifications: { $gt: 0 } }, { $inc: { unreadNotifications: -1 } });
+      }
+      await Notification.deleteOne({ _id: notif._id });
+    }
+  }
 }

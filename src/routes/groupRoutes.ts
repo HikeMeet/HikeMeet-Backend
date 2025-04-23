@@ -3,9 +3,18 @@ import { Group } from '../models/Group';
 import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
+import { Notification } from '../models/Notification';
 import { NotificationOld } from '../models/Notifications';
 import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL } from '../helpers/cloudinaryHelper';
-import { notifyGroupUpdated } from '../helpers/notifications';
+import {
+  handleJoinRequestCancelled,
+  notifyGroupInvite,
+  notifyGroupInviteAccepted,
+  notifyGroupJoinApproved,
+  notifyGroupJoined,
+  notifyGroupJoinRequest,
+  notifyGroupUpdated,
+} from '../helpers/notifications';
 const router = express.Router();
 // POST /create - Create a new group
 // TODO: Conditions of creating group if location or name exist?
@@ -268,36 +277,8 @@ router.post('/:groupId/invite/:userId', async (req: Request, res: Response) => {
     });
     await group.save();
 
-    // Build the notification data.
-    const notificationData: any = {
-      user: userObjectId,
-      type: 'group_invite',
-      group: group._id,
-    };
-
-    // Determine the triggering user.
-    let triggerUserId: mongoose.Schema.Types.ObjectId;
-    if (req.body.hasOwnProperty('user_triggered')) {
-      if (mongoose.Types.ObjectId.isValid(user_triggered)) {
-        triggerUserId = new mongoose.Types.ObjectId(user_triggered) as any as mongoose.Schema.Types.ObjectId;
-      } else {
-        return res.status(400).json({ error: 'Invalid user_triggered value' });
-      }
-    } else {
-      triggerUserId = group.created_by;
-    }
-    notificationData.user_triggered = triggerUserId;
-
-    // Fetch the triggering user's details to include their name in the message.
-    const triggerUser = await User.findById(triggerUserId);
-    const triggerName = triggerUser && triggerUser.username ? triggerUser.username : 'Someone';
-
-    // Set the notification message with the triggering user's name.
-    notificationData.message = `${triggerName} has invited you to join the group "${group.name}".`;
-
-    // Create and save the notification
-    const notification = new NotificationOld(notificationData);
-    await notification.save();
+    //  notifi invitie
+    await notifyGroupInvite(new mongoose.Types.ObjectId(userId), new mongoose.Types.ObjectId(user_triggered), group._id as mongoose.Types.ObjectId);
 
     return res.status(200).json({ message: 'Invitation sent and notification created', group });
   } catch (err) {
@@ -329,40 +310,31 @@ router.post('/:groupId/cancel-invite/:userId', async (req: Request, res: Respons
       return res.status(400).json({ error: 'Invitation not found for this user' });
     }
 
-    // Fetch the invitation notification (if exists) to determine the inviter
-    const inviteNotification = await NotificationOld.findOne({
-      user: new mongoose.Types.ObjectId(userId),
-      type: 'group_invite',
-      group: group._id,
-    });
-
     // Remove the pending invitation from the group document
     group.pending.splice(pendingIndex, 1);
     const updatedGroup = await group.save();
 
-    // Remove the corresponding invitation notification
-    await NotificationOld.deleteOne({
-      user: new mongoose.Types.ObjectId(userId),
-      type: 'group_invite',
-      group: group._id,
-    });
-
-    // If the invited user cancels their own invitation,
-    // send a notification to the inviting admin informing them that the invite was declined,
-    // including who declined it.
-    if (cancelled_by === userId && inviteNotification && inviteNotification.user_triggered) {
-      // Fetch the details of the user who declined the invitation
-      const declinedUser = await User.findById(userId);
-      const declinedUserName = declinedUser ? declinedUser.username : 'The user';
-
-      const declineNotification = new NotificationOld({
-        user: inviteNotification.user_triggered, // The inviter gets notified
-        type: 'group_invite_declined',
-        group: group._id,
-        message: `${declinedUserName} has declined your invitation to join the group "${group.name}".`,
-        user_triggered: new mongoose.Types.ObjectId(userId), // The user who declined
+    // *** Notification deletion handle
+    // If the canceled_by is equal to the userId, check if the notification is read or unread
+    if (cancelled_by === userId) {
+      const note = await Notification.findOne({
+        to: new mongoose.Types.ObjectId(userId),
+        type: 'group_invite',
+        'data.groupId': group._id,
+        read: false,
       });
-      await declineNotification.save();
+      console.log(note);
+      if (note && note.read === false) {
+        await User.updateOne({ _id: new mongoose.Types.ObjectId(userId) }, { $inc: { unreadNotifications: -1 } });
+        await note.updateOne({ read: true });
+      }
+    } else {
+      // If the canceled_by is not the userId, delete the notification
+      await Notification.findOneAndDelete({
+        to: new mongoose.Types.ObjectId(userId),
+        type: 'group_invite',
+        from: new mongoose.Types.ObjectId(cancelled_by),
+      });
     }
 
     return res.status(200).json(updatedGroup);
@@ -407,29 +379,10 @@ router.post('/:groupId/accept-invite/:userId', async (req: Request, res: Respons
 
     const updatedGroup = await group.save();
 
-    // Remove the invitation notification for this invited user
-    const inviteNotification = await NotificationOld.findOneAndDelete({
-      user: new mongoose.Types.ObjectId(userId),
-      type: 'group_invite',
-      group: group._id,
-    });
-
-    // If invitation notification exists and it has a triggering user, send a notification to that user
-    if (inviteNotification && inviteNotification.user_triggered) {
-      // Fetch accepted user's details for a friendly message
-      const acceptedUser = await User.findById(userId);
-      const acceptedUserName = acceptedUser ? acceptedUser.username : 'A user';
-
-      const acceptedNotification = new NotificationOld({
-        user: inviteNotification.user_triggered, // notify the inviter
-        type: 'group_invite_accepted',
-        group: group._id,
-        message: `${acceptedUserName} has accepted your invitation to join the group "${group.name}".`,
-        user_triggered: new mongoose.Types.ObjectId(userId),
-      });
-      await acceptedNotification.save();
-    }
-
+    await notifyGroupInviteAccepted(
+      new mongoose.Types.ObjectId(userId), // the accepter
+      new mongoose.Types.ObjectId(groupId), // the group they joined
+    );
     return res.status(200).json(updatedGroup);
   } catch (err) {
     console.error('Error accepting invitation:', err);
@@ -521,10 +474,7 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
     const userObjectId = new mongoose.Types.ObjectId(userId) as any as mongoose.Schema.Types.ObjectId;
 
     // Fetch joining user's details for notification message
-    const joiningUser = await User.findById(userId);
-    const joiningUsername = joiningUser ? joiningUser.username : 'Someone';
-
-    let notificationType = '';
+    let notificationHelper: typeof notifyGroupJoined | typeof notifyGroupJoinRequest;
     let responseMessage = '';
 
     if (group.privacy === 'public') {
@@ -535,7 +485,7 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
         joined_at: new Date(),
       });
       await group.save();
-      notificationType = 'group_joined';
+      notificationHelper = notifyGroupJoined;
       responseMessage = 'User added to group';
     } else {
       // Private group: add a join request to the pending list
@@ -546,7 +496,7 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
         created_at: new Date(),
       });
       await group.save();
-      notificationType = 'group_join_request';
+      notificationHelper = notifyGroupJoinRequest;
       responseMessage = 'Join request sent. Awaiting approval.';
     }
 
@@ -555,14 +505,11 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
 
     // Loop over each admin to create a notification
     for (const admin of adminMembers) {
-      const adminNotification = new NotificationOld({
-        user: admin.user,
-        type: notificationType,
-        group: group._id,
-        message: `${joiningUsername} has ${group.privacy === 'public' ? 'joined' : 'requested to join'} the group "${group.name}".`,
-        user_triggered: new mongoose.Types.ObjectId(userId),
-      });
-      await adminNotification.save();
+      await notificationHelper(
+        new mongoose.Types.ObjectId(admin.user.toString()),
+        userObjectId as any,
+        new mongoose.Types.ObjectId(group._id?.toString()),
+      );
     }
 
     return res.status(200).json({ message: responseMessage, group });
@@ -616,29 +563,17 @@ router.post('/:groupId/approve-join/:userId', async (req: Request, res: Response
     }
 
     // Fetch the admin user's details for the notification message.
-    const adminUser = await User.findById(admin_id);
-    const adminName = adminUser ? adminUser.username : 'An admin';
 
-    // Create a notification for the user whose join request was approved.
-    const approvedNotification = new NotificationOld({
-      user: new mongoose.Types.ObjectId(userId),
-      type: 'group_join_approved',
-      group: group._id,
-      message: `Your join request for the group "${group.name}" has been approved by ${adminName}.`,
-      user_triggered: new mongoose.Types.ObjectId(admin_id),
-    });
-    await approvedNotification.save();
+    const adminIds = group.members.filter((m) => m.role === 'admin').map((m) => new mongoose.Types.ObjectId(m.user.toString()));
 
-    // Loop over each admin to remove notification
-    const adminMembers = group.members.filter((member) => member.role === 'admin');
-    for (const admin of adminMembers) {
-      await NotificationOld.deleteMany({
-        group: group._id,
-        type: 'group_join_request',
-        user: admin.user,
-        user_triggered: userId,
-      });
-    }
+    // 1) Notify the requesting user
+    await notifyGroupJoinApproved(
+      new mongoose.Types.ObjectId(userId),
+      new mongoose.Types.ObjectId(admin_id),
+      group._id as mongoose.Types.ObjectId,
+      adminIds,
+    );
+
     return res.status(200).json({ message: 'Join request approved', group });
   } catch (err) {
     console.error('Error approving join request:', err);
@@ -684,35 +619,11 @@ router.post('/:groupId/cancel-join/:userId', async (req: Request, res: Response)
     group.pending.splice(pendingIndex, 1);
     const updatedGroup = await group.save();
 
-    // Determine cancellation type
-    if (cancelled_by === userId) {
-      // Find all admin members in the group
-      const adminMembers = group.members.filter((member) => member.role === 'admin');
+    // Fetch all admin IDs once:
+    const adminIds = updatedGroup.members.filter((m) => m.role === 'admin').map((m) => new mongoose.Types.ObjectId(m.user.toString()));
 
-      // Loop over each admin to remove notification
-      for (const admin of adminMembers) {
-        await NotificationOld.deleteMany({
-          group: group._id,
-          type: 'group_join_request',
-          user: admin.user,
-          user_triggered: userId,
-        });
-      }
-    } else {
-      // Admin cancellation (decline): Notify the joining user that their request was declined.
-      // Fetch admin details to include their name in the notification.
-      const adminUser = await User.findById(cancelled_by);
-      const adminName = adminUser ? adminUser.username : 'An admin';
-
-      const declineNotification = new NotificationOld({
-        user: new mongoose.Types.ObjectId(userId),
-        type: 'group_join_request_declined',
-        group: group._id,
-        message: `Your join request for the group "${group.name}" has been declined by ${adminName}.`,
-        user_triggered: new mongoose.Types.ObjectId(cancelled_by),
-      });
-      await declineNotification.save();
-    }
+    // Kick off the cleanup:
+    await handleJoinRequestCancelled(groupId, userId, cancelled_by, adminIds);
 
     return res.status(200).json({ message: 'Join request cancelled', group: updatedGroup });
   } catch (err) {

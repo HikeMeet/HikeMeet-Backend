@@ -47,7 +47,7 @@ router.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
     // 2) Fetch the notification
     const note = await Notification.findById(id);
     if (!note) {
-      return res.status(404).json({ error: 'Notification not found' });
+      return res.status(405).json({ error: 'Notification not found' });
     }
 
     // 3) Ensure this notification actually belongs to the user
