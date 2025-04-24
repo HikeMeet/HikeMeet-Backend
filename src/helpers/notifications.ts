@@ -32,7 +32,7 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
     type: opts.type,
     title: opts.title,
     body: opts.body,
-    data: opts.data,
+    data: { ...opts.data, id: noteId },
     read: false,
     created_on: new Date(),
   });
@@ -56,7 +56,7 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
         sound: 'default',
         title: opts.title,
         body: bodyText,
-        data: opts.data,
+        data: { ...opts.data, id: noteId },
       };
     });
 
