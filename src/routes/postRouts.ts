@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
+import { Notification } from '../models/Notification';
 import mongoose from 'mongoose';
 import { notifyCommentLiked, notifyPostCommented, notifyPostCreateInGroup, notifyPostLiked, notifyPostShared } from '../helpers/notifications';
 
@@ -567,6 +568,12 @@ router.delete('/:postId/comment/:commentId', async (req: Request, res: Response)
     // Remove the comment and save the post
     post.comments = post.comments.filter((c: any) => c._id.toString() !== commentId);
     await post.save();
+
+    // Remove all notifications associated with this comment
+    await Notification.deleteMany({
+      type: 'comment_like',
+      data: { commentId, postId },
+    });
 
     res.status(200).json({ message: 'Comment deleted successfully' });
   } catch (error) {

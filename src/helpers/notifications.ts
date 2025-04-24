@@ -18,40 +18,12 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
   const noteId = new mongoose.Types.ObjectId();
 
   // 2) If there’s a triggering user, lookup their display info
-  const actorInfo: Record<string, any> = {};
-  if (opts.from) {
-    const actor = await User.findById(opts.from).select('username profile_picture.url').lean();
-    if (actor) {
-      actorInfo.actor = {
-        id: actor._id.toString(),
-        username: actor.username,
-        profileImage: actor.profile_picture?.url,
-      };
-    }
-  }
+  const actor = await User.findById(opts.from).select('username profile_picture.url').lean();
   // 2) If this is a group‑related notification, pull in group details
-  let groupInfo: Record<string, any> = {};
-
-  if (opts.type.includes('group') && opts.data?.groupId) {
-    const gid = opts.data?.groupId;
-    const group = await Group.findById(gid).select('name main_image').lean();
-    console.log('group: ', group);
-    if (group) {
-      groupInfo.group = {
-        id: group._id.toString(),
-        name: group.name,
-        imageUrl: group.main_image?.url,
-      };
-    }
-  }
-
+  const gid = opts.data?.groupId;
+  const group = await Group.findById(gid).select('name main_image').lean();
   // 2) Merge in whatever data the caller passed, plus our `id`
-  const fullData = {
-    ...(opts.data ?? {}), // e.g. { navigation: { … } }
-    id: noteId.toString(), // always last so it wins
-    ...actorInfo, // adds { actor: { … } } if present
-    ...groupInfo, // { group: { … } } if applicable
-  };
+
   // 1) Create the notification document
   const note = await Notification.create({
     _id: noteId,
@@ -60,7 +32,7 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
     type: opts.type,
     title: opts.title,
     body: opts.body,
-    data: fullData,
+    data: opts.data,
     read: false,
     created_on: new Date(),
   });
@@ -74,16 +46,17 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
     // Build messages, filtering out any non‑Expo tokens
     const messages: ExpoPushMessage[] = user.pushTokens.filter(Expo.isExpoPushToken).map((token) => {
       // if we have an actor username, prefix it
-      const username = actorInfo.actor?.username;
-      const groupName = groupInfo.group?.name;
+      const username = actor?.username;
+      const groupName = group?.name;
       const bodyText = [username, opts.body, groupName].filter(Boolean).join(' ');
 
       return {
         to: token,
+        from: opts.from,
         sound: 'default',
         title: opts.title,
         body: bodyText,
-        data: fullData,
+        data: opts.data,
       };
     });
 
@@ -158,6 +131,7 @@ export async function notifyPostLiked(postAuthor: mongoose.Schema.Types.ObjectId
     title: 'Your post was liked!',
     body: 'liked your post.',
     data: {
+      postId,
       imageType: 'user',
       navigation: {
         name: 'PostStack',
@@ -189,6 +163,7 @@ export async function notifyPostCreateInGroup(groupId: mongoose.Types.ObjectId, 
       data: {
         imageType: 'user',
         groupId: groupId.toString(),
+        postId,
         navigation: {
           name: 'PostStack',
           params: {
@@ -271,6 +246,7 @@ export async function notifyPostCommented(
           params: { postId },
         },
       },
+      postId,
       commentId, // so front‑end can scroll to it if desired
     },
   });
@@ -305,9 +281,10 @@ export async function notifyCommentLiked(
         params: {
           screen: 'PostPage',
           params: { postId },
-          commentId,
         },
       },
+      commentId,
+      postId,
     },
   });
 }
@@ -526,7 +503,7 @@ export async function notifyGroupJoined(
     type: 'group_joined',
     title: 'New Member Joined Group',
     body: `joined your group `,
-    data: { imageType: 'user', navigation, groupId: groupId.toString() },
+    data: { imageType: 'user', navigation, groupId: groupId },
   });
 }
 

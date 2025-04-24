@@ -472,7 +472,7 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
 
     // Convert userId to ObjectId without extra casting
     const userObjectId = new mongoose.Types.ObjectId(userId) as any as mongoose.Schema.Types.ObjectId;
-
+    console.log(userObjectId);
     // Fetch joining user's details for notification message
     let notificationHelper: typeof notifyGroupJoined | typeof notifyGroupJoinRequest;
     let responseMessage = '';
@@ -505,11 +505,7 @@ router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
 
     // Loop over each admin to create a notification
     for (const admin of adminMembers) {
-      await notificationHelper(
-        new mongoose.Types.ObjectId(admin.user.toString()),
-        userObjectId as any,
-        new mongoose.Types.ObjectId(group._id?.toString()),
-      );
+      await notificationHelper(admin.user as any, userId as any, group._id as any);
     }
 
     return res.status(200).json({ message: responseMessage, group });
@@ -665,16 +661,22 @@ router.get('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { getTrip } = req.query;
     const group = await Group.findById(id);
+    console.log('1111');
     if (!group) {
+      console.log('22222');
       return res.status(404).json({ error: 'Group not found' });
     }
     if (getTrip && getTrip === 'true') {
+      console.log('33333');
       const trip = await Trip.findById(group.trip);
       if (!trip) {
+        console.log('4444');
         return res.status(404).json({ error: 'Trip not found' });
       }
+      console.log('5555');
       return res.status(200).json({ group, trip });
     }
+    console.log('666');
     return res.status(200).json({ group });
   } catch (err) {
     console.error('Error getting group by ID:', err);
@@ -704,7 +706,7 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     }
 
     // Store all member IDs for later notifications.
-    const memberIds = group.members.map((member) => member.user.toString());
+    // const memberIds = group.members.map((member) => member.user.toString());
 
     // Delete the group.
     const deletedGroup = await Group.findByIdAndDelete(groupId);
@@ -712,26 +714,7 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    // Optionally, remove any notifications related to this group.
-    await NotificationOld.deleteMany({ group: group._id });
-
-    // Fetch the group creator's details (for notification message)
-    const creator = await User.findById(deleted_by);
-    const creatorName = creator ? creator.username : 'The group creator';
-
-    // Notify all group members (except the creator) that the group has been deleted.
-    for (const memberId of memberIds) {
-      if (memberId !== deleted_by) {
-        const notification = new NotificationOld({
-          user: new mongoose.Types.ObjectId(memberId),
-          type: 'group_deleted',
-          group: group._id,
-          message: `The group "${group.name}" has been deleted by ${creatorName}.`,
-          user_triggered: new mongoose.Types.ObjectId(deleted_by),
-        });
-        await notification.save();
-      }
-    }
+    // Maybe later send notificaiton to all users on deleting
 
     return res.status(200).json({ message: 'Group deleted successfully', group: deletedGroup });
   } catch (err) {

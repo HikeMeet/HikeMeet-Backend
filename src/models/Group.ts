@@ -1,6 +1,9 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 import { IImageModel, ImageModalSchema } from './Trip';
 import { removeOldImage } from '../helpers/cloudinaryHelper';
+import { Post } from './Post';
+import { User } from './User';
+import { Notification } from './Notification';
 
 // Interface for a group member
 export interface IGroupMember {
@@ -111,6 +114,18 @@ groupSchema.pre('findOneAndDelete', async function (next) {
   if (docToDelete.main_image && docToDelete.main_image.image_id) {
     await removeOldImage(docToDelete.main_image.image_id);
   }
+
+  // Remove notifications related to this group and, if unread, decrement user's unread count.
+  const notifications = await Notification.find({ 'data.groupId': docToDelete._id });
+  for (const notification of notifications) {
+    if (!notification.read) {
+      await User.updateOne({ _id: notification.to }, { $inc: { unreadNotifications: -1 } });
+    }
+  }
+  await Notification.deleteMany({ 'data.groupId': docToDelete._id });
+
+  // Delete all associated posts where in_group is the group id
+  await Post.deleteMany({ in_group: docToDelete._id });
 
   next();
 });

@@ -35,8 +35,8 @@ const DEFAULT_PROFILE_IMAGE_ID = 'profile_images/tpyngwygeoykeur0hgre';
 const DEFAULT_PROFILE_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1742156351/profile_images/tpyngwygeoykeur0hgre.jpg';
 const DEFAULT_TRIP_IMAGE_ID = 'trip_images/pxn2u29twifmjcjq7whv';
 const DEFAULT_TRIP_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1742664563/trip_images/pxn2u29twifmjcjq7whv.png';
-const DEFAULT_GROUP_IMAGE_ID = 'group_images/o1onsa093hqedz3ti7fo';
-const DEFAULT_GROUP_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1743157838/group_images/o1onsa093hqedz3ti7fo.webp';
+const DEFAULT_GROUP_IMAGE_ID = 'group-defoult_eqf43c';
+const DEFAULT_GROUP_IMAGE_URL = 'https://res.cloudinary.com/dyebkjnoc/image/upload/v1745514709/group-defoult_eqf43c.jpg';
 
 async function removeOldImage(oldImageId: string | undefined, defaultImageId?: string): Promise<void> {
   if (oldImageId && oldImageId !== defaultImageId) {
