@@ -272,7 +272,11 @@ router.post('/:id/update', async (req: Request, res: Response) => {
     const userId = req.params.id;
     const updates = req.body; // Updates from the request body
     // Find the user and update
-    const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true });
+    const populateOptions = {
+      path: 'friends.id',
+      select: '_id username profile_picture first_name last_name',
+    };
+    const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true }).populate(populateOptions).exec();
     if (!updatedUser) {
       return res.status(404).json({ error: 'User not found' });
     }
