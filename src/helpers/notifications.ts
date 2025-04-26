@@ -17,10 +17,13 @@ interface CreateNotificationOpts {
 export async function createNotification(opts: CreateNotificationOpts): Promise<INotification> {
   const noteId = new mongoose.Types.ObjectId();
 
+  const recipient = await User.findById(opts.to).select('mutedGroups mutedNotificationTypes').lean();
   // 2) If there’s a triggering user, lookup their display info
   const actor = await User.findById(opts.from).select('username profile_picture.url').lean();
   // 2) If this is a group‑related notification, pull in group details
   const gid = opts.data?.groupId;
+  const isGroupMuted = gid && recipient?.mutedGroups?.includes(gid.toString());
+  const isTypeMuted = recipient?.mutedNotificationTypes?.includes(opts.type);
   const group = await Group.findById(gid).select('name main_image').lean();
   // 2) Merge in whatever data the caller passed, plus our `id`
 
@@ -41,33 +44,31 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
   await User.updateOne({ _id: opts.to }, { $inc: { unreadNotifications: 1 } });
 
   // 3) Send push via Expo
-  const user = await User.findById(opts.to).select('pushTokens');
-  if (user?.pushTokens?.length) {
-    // Build messages, filtering out any non‑Expo tokens
-    const messages: ExpoPushMessage[] = user.pushTokens.filter(Expo.isExpoPushToken).map((token) => {
-      // if we have an actor username, prefix it
-      const username = actor?.username;
-      const groupName = group?.name;
-      const bodyText = [username, opts.body, groupName].filter(Boolean).join(' ');
+  if (!isGroupMuted && !isTypeMuted) {
+    const user = await User.findById(opts.to).select('pushTokens').lean();
+    if (user?.pushTokens?.length) {
+      const messages: ExpoPushMessage[] = user.pushTokens.filter(Expo.isExpoPushToken).map((token) => {
+        const username = actor?.username;
+        const groupName = group?.name;
+        const bodyText = [username, opts.body, groupName].filter(Boolean).join(' ');
 
-      return {
-        to: token,
-        from: opts.from,
-        sound: 'default',
-        title: opts.title,
-        body: bodyText,
-        data: { ...opts.data, id: noteId },
-      };
-    });
+        return {
+          to: token,
+          sound: 'default',
+          title: opts.title,
+          body: bodyText,
+          data: { ...opts.data, id: noteId },
+        };
+      });
 
-    // Chunk them into batches of 100 (Expo limit) and send
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      try {
-        const receipts = await expo.sendPushNotificationsAsync(chunk);
-        console.log('Push receipts:', receipts);
-      } catch (err) {
-        console.error('Error sending Expo push:', err);
+      const chunks = expo.chunkPushNotifications(messages);
+      for (const chunk of chunks) {
+        try {
+          const receipts = await expo.sendPushNotificationsAsync(chunk);
+          console.log('Push receipts:', receipts);
+        } catch (err) {
+          console.error('Error sending Expo push:', err);
+        }
       }
     }
   } else {
@@ -377,7 +378,7 @@ export async function notifyGroupUpdated(
   name: string,
 ): Promise<INotification | void> {
   // Don't notify yourself
-  if (toUserId.toString() === updatedById.toString()) return;
+  // if (toUserId.toString() === updatedById.toString()) return;
 
   // 1) Load updater’s info
   const updater = await User.findById(updatedById).select('username profile_picture.url').lean();
