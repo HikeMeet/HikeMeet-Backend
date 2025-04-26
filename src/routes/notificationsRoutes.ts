@@ -19,8 +19,19 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     }
 
     // Fetch notifications, most recent first
-    const notifications = await Notification.find({ to: user._id }).sort({ created_on: -1 });
-
+    const notifications = await Notification.find({ to: user._id })
+      .sort({ created_on: -1 })
+      .populate({
+        path: 'from',
+        select: 'username profile_picture',
+        model: 'User',
+      })
+      .populate({
+        path: 'data.groupId',
+        select: 'name main_image',
+        model: 'Group',
+      })
+      .lean();
     return res.status(200).json({ notifications });
   } catch (err) {
     console.error('Error fetching notifications:', err);
@@ -47,7 +58,7 @@ router.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
     // 2) Fetch the notification
     const note = await Notification.findById(id);
     if (!note) {
-      return res.status(404).json({ error: 'Notification not found' });
+      return res.status(405).json({ error: 'Notification not found' });
     }
 
     // 3) Ensure this notification actually belongs to the user

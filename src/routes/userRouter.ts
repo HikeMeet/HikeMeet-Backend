@@ -229,20 +229,26 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     const mapFriends = (userData: any) => {
       if (userData.friends && Array.isArray(userData.friends)) {
         userData.friends = userData.friends
-          // Filter out entries without an id
-          .filter((friend: any) => friend.id)
-          .map((friend: any) => ({
-            id: friend.id._id.toString(),
-            status: friend.status,
-            data: {
-              _id: friend.id._id,
-              username: friend.id.username,
-              profile_picture: friend.id.profile_picture,
-              first_name: friend.id.first_name,
-              last_name: friend.id.last_name,
-            },
-          }));
+          .filter((friend: any) => friend.id) // still skip truly broken entries
+          .map((friend: any) => {
+            const isPopulated = typeof friend.id === 'object' && friend.id._id;
+
+            return {
+              id: isPopulated ? friend.id._id.toString() : friend.id.toString?.() || String(friend.id),
+              status: friend.status,
+              data: isPopulated
+                ? {
+                    _id: friend.id._id,
+                    username: friend.id.username,
+                    profile_picture: friend.id.profile_picture,
+                    first_name: friend.id.first_name,
+                    last_name: friend.id.last_name,
+                  }
+                : undefined,
+            };
+          });
       }
+
       return userData;
     };
 
@@ -251,7 +257,6 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     } else {
       userObj = mapFriends(userObj);
     }
-
     res.status(200).json(userObj);
   } catch (error) {
     console.error('Error fetching user:', error);

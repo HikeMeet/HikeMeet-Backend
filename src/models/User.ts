@@ -75,10 +75,12 @@ const userSchema = new Schema({
       status: {
         type: String,
         enum: ['request_sent', 'request_received', 'accepted', 'blocked'],
+        required: true,
       },
       id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
+        required: true,
       },
       _id: false, //cancel _id automatic (its was problem)
     },
