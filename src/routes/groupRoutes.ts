@@ -4,7 +4,6 @@ import mongoose from 'mongoose';
 import { Trip } from '../models/Trip';
 import { User } from '../models/User';
 import { Notification } from '../models/Notification';
-import { NotificationOld } from '../models/Notifications';
 import { DEFAULT_GROUP_IMAGE_ID, DEFAULT_GROUP_IMAGE_URL } from '../helpers/cloudinaryHelper';
 import {
   handleJoinRequestCancelled,
@@ -431,14 +430,7 @@ router.post('/:groupId/remove-member/:userId', async (req: Request, res: Respons
     group.members.splice(memberIndex, 1);
     const updatedGroup = await group.save();
 
-    // Create a notification for the removed member
-    const removalNotification = new NotificationOld({
-      user: new mongoose.Types.ObjectId(userId),
-      type: 'group_removed',
-      group: group._id,
-      message: `You have been removed from the group "${group.name}".`,
-    });
-    await removalNotification.save();
+    // ** for later - send a notification for the removed member **
 
     return res.status(200).json(updatedGroup);
   } catch (err) {

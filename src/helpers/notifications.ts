@@ -421,7 +421,7 @@ export async function notifyGroupInvite(toUserId: mongoose.Types.ObjectId, fromU
       params: { groupId: groupId.toString() },
     },
   };
-
+  const group = await Group.findById(groupId);
   const existingNotification = await Notification.findOne({ to: toUserId, from: fromUserId, type: 'group_invite' });
   if (existingNotification) {
     await bumpNotificationTimestamp(existingNotification._id as string);
@@ -433,7 +433,7 @@ export async function notifyGroupInvite(toUserId: mongoose.Types.ObjectId, fromU
       type: 'group_invite',
       title: 'New Group Invitation',
       body: `invited you to join the group `,
-      data: { groupId, imageType: 'group', navigation },
+      data: { groupId, group, imageType: 'group', navigation },
     });
   }
 }
@@ -467,7 +467,7 @@ export async function notifyGroupInviteAccepted(accepterId: mongoose.Types.Objec
       params: { groupId: groupId.toString() },
     },
   };
-
+  const group = await Group.findById(groupId);
   // 6) Fire off the “invite accepted” notif
   await createNotification({
     to: inviterId,
@@ -475,7 +475,7 @@ export async function notifyGroupInviteAccepted(accepterId: mongoose.Types.Objec
     type: 'group_invite_accepted',
     title: 'Group Invitation Accepted',
     body: 'accepted your invitation to group ',
-    data: { imageType: 'user', navigation, groupId: groupId.toString() },
+    data: { imageType: 'user', navigation, groupId: groupId.toString(), group },
   });
 }
 
@@ -495,6 +495,7 @@ export async function notifyGroupJoined(
       params: { groupId: groupId.toString() },
     },
   };
+  const group = await Group.findById(groupId);
 
   // 3) fire core helper
   return createNotification({
@@ -503,7 +504,7 @@ export async function notifyGroupJoined(
     type: 'group_joined',
     title: 'New Member Joined Group',
     body: `joined your group `,
-    data: { imageType: 'user', navigation, groupId: groupId },
+    data: { imageType: 'user', navigation, groupId: groupId, group },
   });
 }
 
@@ -534,6 +535,7 @@ export async function notifyGroupJoinRequest(
         params: { groupId: groupId.toString() },
       },
     };
+    const group = await Group.findById(groupId);
 
     return createNotification({
       to: toUserId,
@@ -541,7 +543,7 @@ export async function notifyGroupJoinRequest(
       type: 'group_join_request',
       title: 'New Group Join Request',
       body: `requested to join your group `,
-      data: { imageType: 'user', navigation, groupId: groupId.toString() },
+      data: { imageType: 'user', navigation, groupId: groupId.toString(), group },
     });
   }
 }
