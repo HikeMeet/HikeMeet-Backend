@@ -123,7 +123,7 @@ router.post('/:tripId/rate', async (req: Request, res: Response) => {
     }
 
     // 3) Upsert the rating in trip.ratings[]
-    const existing = trip.ratings.find((r) => r.user === userId);
+    const existing = trip.ratings.find((r) => r.user.toString() === userId);
     if (existing) {
       existing.value = value;
     } else {
