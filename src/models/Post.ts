@@ -100,6 +100,22 @@ postSchema.pre('findOneAndDelete', async function (next) {
     $or: orFilter,
   });
 
+  // Decrement author’s total_likes & total_shares
+  const authorId = docToDelete.author; // or whatever field you use
+  const likesCount = docToDelete.likes?.length ?? docToDelete.likeCount ?? 0;
+  const sharesCount = docToDelete.shares?.length ?? docToDelete.shareCount ?? 0;
+  if (authorId && (likesCount || sharesCount)) {
+    await User.updateOne(
+      { _id: authorId },
+      {
+        $inc: {
+          'social.total_likes': -likesCount,
+          'social.total_shares': -sharesCount,
+        },
+      },
+    );
+  }
+
   next();
 });
 
