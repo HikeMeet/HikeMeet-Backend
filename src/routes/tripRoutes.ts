@@ -103,6 +103,50 @@ router.post('/:id/update', async (req, res) => {
   }
 });
 
+router.post('/:tripId/rate', async (req: Request, res: Response) => {
+  const { tripId } = req.params;
+  const { value, userId } = req.body as { value: number; userId: string };
+
+  // 1) Validate
+  if (!mongoose.Types.ObjectId.isValid(tripId)) {
+    return res.status(400).json({ error: 'Invalid tripId' });
+  }
+  if (typeof value !== 'number' || value < 1 || value > 5) {
+    return res.status(400).json({ error: 'Rating must be an integer 1–5' });
+  }
+
+  try {
+    // 2) Load the trip
+    const trip = await Trip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+
+    // 3) Upsert the rating in trip.ratings[]
+    const existing = trip.ratings.find((r) => r.user.toString() === userId);
+    if (existing) {
+      existing.value = value;
+    } else {
+      trip.ratings.push({ user: userId, value });
+    }
+
+    // 4) Recompute avg_rating
+    const sum = trip.ratings.reduce((acc, r) => acc + r.value, 0);
+    trip.avg_rating = parseFloat((sum / trip.ratings.length).toFixed(2));
+
+    // 5) Save and respond
+    await trip.save();
+    return res.json({
+      avg_rating: trip.avg_rating,
+      your_rating: value,
+      total_ratings: trip.ratings.length,
+    });
+  } catch (err) {
+    console.error('Error rating trip:', err);
+    return res.status(500).json({ error: 'Failed to rate trip' });
+  }
+});
+
 router.delete('/:id/delete', async (req: Request, res: Response) => {
   try {
     const tripId = req.params.id;

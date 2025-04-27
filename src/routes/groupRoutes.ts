@@ -627,6 +627,25 @@ router.post('/:groupId/cancel-join/:userId', async (req: Request, res: Response)
  *   - status: "planned", "active", or "completed"
  * Example: GET /list?privacy=public&status=active
  */
+
+router.get('/user/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
+
+  try {
+    // Find groups where the members array contains this user
+    const groups = await Group.find({ 'members.user': userId });
+
+    return res.json({ groups });
+  } catch (err) {
+    console.error('Error fetching user groups:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/list', async (req: Request, res: Response) => {
   try {
     const { privacy, status } = req.query;

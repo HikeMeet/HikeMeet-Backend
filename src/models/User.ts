@@ -45,6 +45,7 @@ export interface IUser extends Document {
   updated_on: Date;
   mutedGroups: string[]; // list of Group IDs the user has muted
   mutedNotificationTypes: string[];
+  favorite_trips: mongoose.Schema.Types.ObjectId[];
 }
 
 type IUserModel = Model<IUser>;
@@ -87,6 +88,7 @@ const userSchema = new Schema({
       _id: false, //cancel _id automatic (its was problem)
     },
   ],
+  favorite_trips: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: [] }],
   trip_history: [tripHistorySchema],
   firebase_id: { type: String },
   pushTokens: { type: [String], default: [] },
