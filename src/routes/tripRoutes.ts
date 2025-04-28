@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Trip } from '../models/Trip'; // Adjust the path if needed
 import { ArchivedTrip } from '../models/ArchiveTrip'; // Adjust the path if needed
+import { updateUserExp } from '../helpers/expHelper';
 import mongoose from 'mongoose';
 import { DEFAULT_TRIP_IMAGE_URL, DEFAULT_TRIP_IMAGE_ID, removeOldImage } from '../helpers/cloudinaryHelper';
 
@@ -30,6 +31,9 @@ router.post('/create', async (req: Request, res: Response) => {
 
     // Save to the database
     const savedTrip = await trip.save();
+
+    // +10 EXP for creating a trip
+    await updateUserExp(createdBy, 10);
 
     return res.status(201).json(savedTrip);
   } catch (error) {
@@ -162,6 +166,9 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
     if (!deletedTrip) {
       return res.status(404).json({ error: 'Group not found' });
     }
+
+    // -10 EXP for deleting a trip
+    await updateUserExp(trip.createdBy.toString(), -10);
 
     // Notify all group members (except the creator) that the group has been deleted.
 

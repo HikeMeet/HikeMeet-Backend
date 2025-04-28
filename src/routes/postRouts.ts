@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
+import { updateUserExp } from '../helpers/expHelper';
 import { Notification } from '../models/Notification';
 import mongoose from 'mongoose';
 import { notifyCommentLiked, notifyPostCommented, notifyPostCreateInGroup, notifyPostLiked, notifyPostShared } from '../helpers/notifications';
@@ -27,6 +28,9 @@ router.post('/create', async (req: Request, res: Response) => {
       type: type || 'regular',
       privacy: privacy || 'public',
     });
+
+    // Give 8 EXP for creating a post
+    await updateUserExp(author, 8);
 
     // 2) If this was in a group, notify the other members
     if (in_group && newPost._id) {
@@ -184,6 +188,15 @@ router.post('/share', async (req: Request, res: Response) => {
     });
     await Post.findByIdAndUpdate(finalOriginalPostId, { $addToSet: { shares: author } });
 
+    // The user who shared the post gets 10 EXP points
+    await updateUserExp(author, 10);
+
+    // The original author gets 5 EXP points
+    const originalAuthor = origPost?.author?.toString();
+    if (originalAuthor && originalAuthor !== author) {
+      await updateUserExp(originalAuthor, 5);
+    }
+
     // Notify original author
     const orig = await Post.findById(original_post).select('author');
     if (orig?.author && sharedPostDoc._id) {
@@ -332,6 +345,8 @@ router.post('/:id/like', async (req: Request, res: Response) => {
       $inc: { 'social.total_likes': 1 },
     });
 
+    await updateUserExp(post.author.toString(), 5); // add exp
+
     // 6) Persist & send a notification to the post author
     await notifyPostLiked(post.author, userId, postId);
 
@@ -372,6 +387,8 @@ router.delete('/:id/like', async (req: Request, res: Response) => {
       $inc: { 'social.total_likes': -1 },
     });
 
+    await updateUserExp(post.author.toString(), -5); // reduce exp
+
     res.status(200).json({ message: 'Post unliked successfully', likes: post.likes });
   } catch (error) {
     console.error('Error unliking post:', error);
@@ -409,6 +426,9 @@ router.post('/:id/save', async (req: Request, res: Response) => {
       $inc: { 'social.total_saves': 1 },
     });
 
+    // Reward post author for save
+    await updateUserExp(post.author.toString(), 3);
+
     res.status(200).json({ message: 'Post saved successfully', saves: post.saves });
   } catch (error) {
     console.error('Error saving post:', error);
@@ -445,6 +465,9 @@ router.delete('/:id/save', async (req: Request, res: Response) => {
     await User.findByIdAndUpdate(post.author, {
       $inc: { 'social.total_saves': -1 },
     });
+
+    // Penalize post author for unsave
+    await updateUserExp(post.author.toString(), -3);
 
     res.status(200).json({ message: 'Post unsaved successfully', saves: post.saves });
   } catch (error) {
@@ -499,6 +522,10 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
     if (!postRespond) {
       return res.status(404).json({ error: 'Post not found' });
     }
+
+    // Reward for commenting
+    await updateUserExp(userId, 4);
+
     res.status(201).json({
       message: 'Comment added successfully',
       comment: postRespond.comments[postRespond.comments.length - 1],
@@ -575,6 +602,11 @@ router.delete('/:postId/comment/:commentId', async (req: Request, res: Response)
       data: { commentId, postId },
     });
 
+    // Penalize for deleting own comment
+    if (comment.user.toString() === userId) {
+      await updateUserExp(userId, -4);
+    }
+
     res.status(200).json({ message: 'Comment deleted successfully' });
   } catch (error) {
     console.error('Error deleting comment:', error);
@@ -620,6 +652,9 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
       })
       .exec();
 
+    // Reward comment author for being liked
+    await updateUserExp(comment.user.toString(), 2);
+
     res.status(200).json({
       message: 'Comment liked',
       liked_by: populatedComment?.comments[0]?.liked_by,
@@ -657,6 +692,9 @@ router.delete('/:postId/comment/:commentId/like', async (req: Request, res: Resp
     // Remove the userId from the liked_by array
     comment.liked_by = comment.liked_by.filter((id: any) => id.toString() !== userId);
     await post.save();
+
+    // Penalize for losing a like
+    await updateUserExp(comment.user.toString(), -2);
 
     res.status(200).json({ message: 'Comment unliked', comment });
   } catch (error) {
