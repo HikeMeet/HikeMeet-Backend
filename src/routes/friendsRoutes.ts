@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User';
 import mongoose from 'mongoose';
+import { updateUserExp } from '../helpers/expHelper';
 import { notifyFriendRequestAccepted, notifyFriendRequestSent } from '../helpers/notifications';
 import { Notification } from '../models/Notification';
 
@@ -228,6 +229,10 @@ router.post('/accept-request', async (req: Request, res: Response) => {
     await sender.save();
     await receiver.save();
 
+    // Reward both users for becoming friends
+    await updateUserExp(currentUserId, 5);
+    await updateUserExp(targetUserId, 5);
+
     // —— NEW: notify the original requester
     await notifyFriendRequestAccepted(currentUserId as mongoose.Types.ObjectId, targetUserId as mongoose.Types.ObjectId);
 
@@ -258,6 +263,11 @@ router.post('/remove', async (req: Request, res: Response) => {
 
     await user.save();
     await friendUser.save();
+
+    // Penalize both users for removing a friend
+    await updateUserExp(currentUserId, -5);
+    await updateUserExp(targetUserId, -5);
+
     res.status(200).json({ message: 'Friend removed successfully.' });
   } catch (error) {
     console.error('Error removing friend:', error);
