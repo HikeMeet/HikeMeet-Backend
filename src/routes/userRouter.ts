@@ -75,6 +75,7 @@ router.post('/insert', async (req: Request, res: Response) => {
         image_id: DEFAULT_PROFILE_IMAGE_ID,
       },
       bio: bio || '',
+      exp: 0,
       facebook_link: facebook_link || '',
       instagram_link: instagram_link || '',
       role: role || 'user', // Default to 'user'
