@@ -2,7 +2,6 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Group } from '../models/Group';
-import { Post } from '../models/Post';
 
 const router = express.Router();
 
@@ -90,21 +89,6 @@ router.get('/all', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error searching everything:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-//can be used in the future
-// Search Posts
-router.get('/posts', async (req: Request, res: Response) => {
-  try {
-    const { query } = req.query;
-    const searchCriteria = query && typeof query === 'string' ? { content: { $regex: query, $options: 'i' } } : {};
-
-    const posts = await Post.find(searchCriteria);
-    res.status(200).json({ posts });
-  } catch (error) {
-    console.error('Error searching posts:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
