@@ -2,7 +2,6 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Group } from '../models/Group';
-import { Post } from '../models/Post';
 
 const router = express.Router();
 
