@@ -62,6 +62,38 @@ router.get('/groups', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/all', async (req: Request, res: Response) => {
+  try {
+    const { query } = req.query;
+
+    const userCriteria =
+      query && typeof query === 'string'
+        ? {
+            $or: [
+              { username: { $regex: query, $options: 'i' } },
+              { first_name: { $regex: query, $options: 'i' } },
+              { last_name: { $regex: query, $options: 'i' } },
+            ],
+          }
+        : {};
+
+    const tripCriteria = query && typeof query === 'string' ? { name: { $regex: query, $options: 'i' } } : {};
+
+    const groupCriteria = query && typeof query === 'string' ? { name: { $regex: query, $options: 'i' } } : {};
+
+    const [users, trips, groups] = await Promise.all([User.find(userCriteria), Trip.find(tripCriteria), Group.find(groupCriteria)]);
+
+    res.status(200).json({
+      friends: users,
+      trips,
+      groups,
+    });
+  } catch (error) {
+    console.error('Error searching everything:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 //can be used in the future
 // Search Posts
 router.get('/posts', async (req: Request, res: Response) => {
