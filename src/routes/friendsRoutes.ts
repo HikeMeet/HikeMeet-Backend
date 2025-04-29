@@ -1,6 +1,9 @@
 import express, { Request, Response } from 'express';
 import { User } from '../models/User';
 import mongoose from 'mongoose';
+import { updateUserExp } from '../helpers/expHelper';
+import { notifyFriendRequestAccepted, notifyFriendRequestSent } from '../helpers/notifications';
+import { Notification } from '../models/Notification';
 
 const router = express.Router();
 
@@ -126,6 +129,9 @@ router.post('/send-request', async (req: Request, res: Response) => {
     await sender.save();
     await receiver.save();
 
+    // **Send the notification**
+    await notifyFriendRequestSent(currentUserId, targetUserId);
+
     res.status(200).json({ message: 'Friend request sent successfully.' });
   } catch (error) {
     console.error('Error sending friend request:', error);
@@ -165,6 +171,17 @@ router.post('/cancel-request', async (req: Request, res: Response) => {
 
     await sender.save();
     await receiver.save();
+
+    // delete the original notification
+    const notif = await Notification.findOneAndDelete({
+      to: new mongoose.Types.ObjectId(targetUserId),
+      from: new mongoose.Types.ObjectId(currentUserId),
+      type: 'friend_request',
+    });
+    if (notif && notif.read === false) {
+      await User.updateOne({ _id: targetUserId }, { $inc: { unreadNotifications: -1 } });
+    }
+
     res.status(200).json({ message: 'Friend request cancelled successfully.' });
   } catch (error) {
     console.error('Error cancelling friend request:', error);
@@ -211,6 +228,14 @@ router.post('/accept-request', async (req: Request, res: Response) => {
 
     await sender.save();
     await receiver.save();
+
+    // Reward both users for becoming friends
+    await updateUserExp(currentUserId, 5);
+    await updateUserExp(targetUserId, 5);
+
+    // —— NEW: notify the original requester
+    await notifyFriendRequestAccepted(currentUserId as mongoose.Types.ObjectId, targetUserId as mongoose.Types.ObjectId);
+
     res.status(200).json({ message: 'Friend request accepted successfully.' });
   } catch (error) {
     console.error('Error accepting friend request:', error);
@@ -238,6 +263,11 @@ router.post('/remove', async (req: Request, res: Response) => {
 
     await user.save();
     await friendUser.save();
+
+    // Penalize both users for removing a friend
+    await updateUserExp(currentUserId, -5);
+    await updateUserExp(targetUserId, -5);
+
     res.status(200).json({ message: 'Friend removed successfully.' });
   } catch (error) {
     console.error('Error removing friend:', error);
@@ -246,7 +276,7 @@ router.post('/remove', async (req: Request, res: Response) => {
 });
 
 // Revokek request
-router.post('/revoke-request', async (req: Request, res: Response) => {
+router.post('/decline-request', async (req: Request, res: Response) => {
   try {
     const { currentUserId, targetUserId } = req.body; // currentUserId is the receiver rejecting the request
     if (!currentUserId || !targetUserId) {
@@ -277,6 +307,18 @@ router.post('/revoke-request', async (req: Request, res: Response) => {
 
     await sender.save();
     await receiver.save();
+
+    const declinedNote = await Notification.findOneAndDelete({
+      to: currentUserId,
+      from: targetUserId,
+      type: 'friend_request',
+    });
+
+    if (declinedNote && declinedNote.read === false) {
+      // decrement unread counter on the recipient
+      await User.updateOne({ _id: currentUserId }, { $inc: { unreadNotifications: -1 } });
+    }
+
     res.status(200).json({ message: 'Friend request revoked successfully.' });
   } catch (error) {
     console.error('Error revoking friend request:', error);

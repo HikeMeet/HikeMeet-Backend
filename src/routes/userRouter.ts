@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/User'; // Import the User model
 import mongoose from 'mongoose';
 import { DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL } from '../helpers/cloudinaryHelper';
+import { authenticate } from '../middlewares/authenticate';
 
 const router = express.Router();
 
@@ -10,8 +11,20 @@ router.post('/insert', async (req: Request, res: Response) => {
   try {
     console.log('inserting');
     // Extract user data from the request body
-    const { username, email, first_name, last_name, gender, birth_date, /*profile_picture,*/ bio, facebook_link, instagram_link, role, firebase_id } =
-      req.body;
+    const {
+      username,
+      email,
+      first_name,
+      last_name,
+      gender,
+      birth_date,
+      /*profile_picture,*/ bio,
+      facebook_link,
+      instagram_link,
+      role,
+      firebase_id,
+      pushTokens,
+    } = req.body;
 
     // Validate required fields
     const requiredFields = ['username', 'email', 'first_name', 'last_name', 'firebase_id'];
@@ -62,6 +75,7 @@ router.post('/insert', async (req: Request, res: Response) => {
         image_id: DEFAULT_PROFILE_IMAGE_ID,
       },
       bio: bio || '',
+      exp: 0,
       facebook_link: facebook_link || '',
       instagram_link: instagram_link || '',
       role: role || 'user', // Default to 'user'
@@ -73,6 +87,7 @@ router.post('/insert', async (req: Request, res: Response) => {
       },
       created_on: new Date(),
       updated_on: new Date(),
+      pushTokens: pushTokens || [],
     });
 
     // Save the user to the database
@@ -117,6 +132,44 @@ router.get('/partial-all', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching partial user data:', error);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// POST /api/user/register-token
+// Body: { token: string }
+router.post('/register-token', authenticate, async (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+  try {
+    if (!token) {
+      return res.status(400).json({ error: 'Missing token in request body' });
+    }
+    if (!req.user) {
+      return res.status(404).json({ error: 'Missing user data' });
+    }
+    // Add to pushTokens array only if it doesn't already exist
+    await User.findOneAndUpdate({ firebase_id: req.user.uid }, { $addToSet: { pushTokens: token } });
+    return res.sendStatus(204);
+  } catch (err) {
+    console.error('Error registering push token:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// DELETE /api/user/unregister-token
+router.delete('/unregister-token', authenticate, async (req: Request, res: Response) => {
+  const { token } = req.body as { token?: string };
+  if (!token) {
+    return res.status(400).json({ error: 'Missing token in request body' });
+  }
+  try {
+    if (!req.user) {
+      return res.status(404).json({ error: 'Missing user data' });
+    }
+    await User.findOneAndUpdate({ firebase_id: req.user.uid }, { $pull: { pushTokens: token } });
+    return res.sendStatus(204);
+  } catch (err) {
+    console.error('Error unregistering push token:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
@@ -177,20 +230,26 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     const mapFriends = (userData: any) => {
       if (userData.friends && Array.isArray(userData.friends)) {
         userData.friends = userData.friends
-          // Filter out entries without an id
-          .filter((friend: any) => friend.id)
-          .map((friend: any) => ({
-            id: friend.id._id.toString(),
-            status: friend.status,
-            data: {
-              _id: friend.id._id,
-              username: friend.id.username,
-              profile_picture: friend.id.profile_picture,
-              first_name: friend.id.first_name,
-              last_name: friend.id.last_name,
-            },
-          }));
+          .filter((friend: any) => friend.id) // still skip truly broken entries
+          .map((friend: any) => {
+            const isPopulated = typeof friend.id === 'object' && friend.id._id;
+
+            return {
+              id: isPopulated ? friend.id._id.toString() : friend.id.toString?.() || String(friend.id),
+              status: friend.status,
+              data: isPopulated
+                ? {
+                    _id: friend.id._id,
+                    username: friend.id.username,
+                    profile_picture: friend.id.profile_picture,
+                    first_name: friend.id.first_name,
+                    last_name: friend.id.last_name,
+                  }
+                : undefined,
+            };
+          });
       }
+
       return userData;
     };
 
@@ -199,7 +258,6 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     } else {
       userObj = mapFriends(userObj);
     }
-
     res.status(200).json(userObj);
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -215,7 +273,11 @@ router.post('/:id/update', async (req: Request, res: Response) => {
     const userId = req.params.id;
     const updates = req.body; // Updates from the request body
     // Find the user and update
-    const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true });
+    const populateOptions = {
+      path: 'friends.id',
+      select: '_id username profile_picture first_name last_name',
+    };
+    const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true }).populate(populateOptions).exec();
     if (!updatedUser) {
       return res.status(404).json({ error: 'User not found' });
     }

@@ -24,6 +24,7 @@ export interface IUser extends Document {
     delete_token?: string;
   };
   bio?: string;
+  exp?: number;
   facebook_link?: string;
   instagram_link?: string;
   role: 'user' | 'admin';
@@ -40,8 +41,12 @@ export interface IUser extends Document {
   }[];
   trip_history: ITripHistoryEntry[];
   firebase_id: string;
-  created_on: Date;
+  pushTokens: string[];
+  unreadNotifications: number;
   updated_on: Date;
+  mutedGroups: string[]; // list of Group IDs the user has muted
+  mutedNotificationTypes: string[];
+  favorite_trips: mongoose.Schema.Types.ObjectId[];
 }
 
 type IUserModel = Model<IUser>;
@@ -59,6 +64,7 @@ const userSchema = new Schema({
     delete_token: { type: String },
   },
   bio: { type: String },
+  exp: { type: Number },
   facebook_link: { type: String },
   instagram_link: { type: String },
   role: { type: String, required: true, enum: ['user', 'admin'], default: 'user' },
@@ -74,18 +80,25 @@ const userSchema = new Schema({
       status: {
         type: String,
         enum: ['request_sent', 'request_received', 'accepted', 'blocked'],
+        required: true,
       },
       id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
+        required: true,
       },
       _id: false, //cancel _id automatic (its was problem)
     },
   ],
+  favorite_trips: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: [] }],
   trip_history: [tripHistorySchema],
   firebase_id: { type: String },
+  pushTokens: { type: [String], default: [] },
+  unreadNotifications: { type: Number, default: 0 },
   created_on: { type: Date, required: true, default: Date.now },
   updated_on: { type: Date, required: true, default: Date.now },
+  mutedGroups: { type: [String], default: [] }, // list of Group IDs the user has muted
+  mutedNotificationTypes: { type: [String], default: [] },
 });
 
 // Mongoose Middleware: Cleanup friend references after a user is deleted

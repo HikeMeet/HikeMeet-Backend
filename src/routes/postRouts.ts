@@ -1,24 +1,25 @@
 import express, { Request, Response } from 'express';
 import { Post } from '../models/Post';
 import { User } from '../models/User';
+import { updateUserExp } from '../helpers/expHelper';
+import { Notification } from '../models/Notification';
 import mongoose from 'mongoose';
+import { notifyCommentLiked, notifyPostCommented, notifyPostCreateInGroup, notifyPostLiked, notifyPostShared } from '../helpers/notifications';
 
 const router = express.Router();
 
 router.post('/create', async (req: Request, res: Response) => {
   try {
-    // Destructure the expected fields from the request body.
-    // We assume `images` is an array of media objects sent from the frontend.
     const { author, content, images, attached_trips, attached_groups, type, privacy, in_group } = req.body;
 
-    // Create a new post using the provided data.
+    // 1) Create the post
     const newPost = await Post.create({
       author,
       in_group: in_group || undefined,
       content,
-      images: images || [], // Expecting an array of IImageModel objects
+      images: images || [],
       attached_trips: attached_trips || undefined,
-      attached_groups: attached_groups || undefined,
+      attached_groups,
       likes: [],
       shares: [],
       saves: [],
@@ -28,10 +29,18 @@ router.post('/create', async (req: Request, res: Response) => {
       privacy: privacy || 'public',
     });
 
-    res.status(201).json({ message: 'Post created successfully', post: newPost });
+    // Give 8 EXP for creating a post
+    await updateUserExp(author, 8);
+
+    // 2) If this was in a group, notify the other members
+    if (in_group && newPost._id) {
+      await notifyPostCreateInGroup(new mongoose.Types.ObjectId(in_group), new mongoose.Types.ObjectId(author), newPost._id.toString());
+    }
+    // 3) Respond
+    return res.status(201).json({ message: 'Post created successfully', post: newPost });
   } catch (error) {
     console.error('Error creating post:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -179,6 +188,26 @@ router.post('/share', async (req: Request, res: Response) => {
     });
     await Post.findByIdAndUpdate(finalOriginalPostId, { $addToSet: { shares: author } });
 
+    // The user who shared the post gets 10 EXP points
+    await updateUserExp(author, 10);
+
+    // The original author gets 5 EXP points
+    const originalAuthor = origPost?.author?.toString();
+    if (originalAuthor && originalAuthor !== author) {
+      await updateUserExp(originalAuthor, 5);
+    }
+
+    // Notify original author
+    const orig = await Post.findById(original_post).select('author');
+    if (orig?.author && sharedPostDoc._id) {
+      await notifyPostShared(
+        new mongoose.Types.ObjectId(orig.author.toString()),
+        new mongoose.Types.ObjectId(author),
+        sharedPostDoc._id.toString(),
+        in_group,
+      );
+    }
+
     // Populate fields.
     const sharedPost = await Post.findById(sharedPostDoc._id)
       .populate({ path: 'author', select: 'username profile_picture' })
@@ -316,6 +345,11 @@ router.post('/:id/like', async (req: Request, res: Response) => {
       $inc: { 'social.total_likes': 1 },
     });
 
+    await updateUserExp(post.author.toString(), 5); // add exp
+
+    // 6) Persist & send a notification to the post author
+    await notifyPostLiked(post.author, userId, postId);
+
     res.status(200).json({ message: 'Post liked successfully', likes: post.likes });
   } catch (error) {
     console.error('Error liking post:', error);
@@ -352,6 +386,8 @@ router.delete('/:id/like', async (req: Request, res: Response) => {
     await User.findByIdAndUpdate(post.author, {
       $inc: { 'social.total_likes': -1 },
     });
+
+    await updateUserExp(post.author.toString(), -5); // reduce exp
 
     res.status(200).json({ message: 'Post unliked successfully', likes: post.likes });
   } catch (error) {
@@ -390,6 +426,9 @@ router.post('/:id/save', async (req: Request, res: Response) => {
       $inc: { 'social.total_saves': 1 },
     });
 
+    // Reward post author for save
+    await updateUserExp(post.author.toString(), 3);
+
     res.status(200).json({ message: 'Post saved successfully', saves: post.saves });
   } catch (error) {
     console.error('Error saving post:', error);
@@ -427,6 +466,9 @@ router.delete('/:id/save', async (req: Request, res: Response) => {
       $inc: { 'social.total_saves': -1 },
     });
 
+    // Penalize post author for unsave
+    await updateUserExp(post.author.toString(), -3);
+
     res.status(200).json({ message: 'Post unsaved successfully', saves: post.saves });
   } catch (error) {
     console.error('Error unsaving post:', error);
@@ -460,6 +502,19 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
 
     await post.save();
 
+    // Get the newly added comment’s ID
+    const addedComment = post.comments[post.comments.length - 1];
+
+    if (addedComment._id) {
+      //Notify the post’s author
+      await notifyPostCommented(
+        new mongoose.Types.ObjectId(post.author.toString()),
+        new mongoose.Types.ObjectId(userId),
+        postId,
+        addedComment._id.toString(),
+      );
+    }
+
     const postRespond = await Post.findById(postId)
       .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture' } })
       .exec();
@@ -467,6 +522,10 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
     if (!postRespond) {
       return res.status(404).json({ error: 'Post not found' });
     }
+
+    // Reward for commenting
+    await updateUserExp(userId, 4);
+
     res.status(201).json({
       message: 'Comment added successfully',
       comment: postRespond.comments[postRespond.comments.length - 1],
@@ -477,6 +536,7 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
   }
 });
 
+// Update the comment text
 router.post('/:postId/comment/:commentId', async (req: Request, res: Response) => {
   try {
     const { postId, commentId } = req.params;
@@ -536,6 +596,17 @@ router.delete('/:postId/comment/:commentId', async (req: Request, res: Response)
     post.comments = post.comments.filter((c: any) => c._id.toString() !== commentId);
     await post.save();
 
+    // Remove all notifications associated with this comment
+    await Notification.deleteMany({
+      type: 'comment_like',
+      data: { commentId, postId },
+    });
+
+    // Penalize for deleting own comment
+    if (comment.user.toString() === userId) {
+      await updateUserExp(userId, -4);
+    }
+
     res.status(200).json({ message: 'Comment deleted successfully' });
   } catch (error) {
     console.error('Error deleting comment:', error);
@@ -562,13 +633,16 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
     }
 
     // Check if the user already liked the comment
-    if (comment.liked_by.some((id: any) => id.toString() === userId)) {
+    if (comment.liked_by.some((id: mongoose.Types.ObjectId) => id.toString() === userId)) {
       return res.status(400).json({ error: 'Comment already liked by this user' });
     }
 
     // Add userId to the liked_by array
     comment.liked_by.push(userId);
     await post.save();
+
+    // Notify the comment’s author
+    await notifyCommentLiked(comment.user, userId, postId, commentId);
 
     const populatedComment = await Post.findById(postId)
       .select({ comments: { $elemMatch: { _id: commentId } } })
@@ -577,6 +651,9 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
         select: 'username first_name last_name profile_picture',
       })
       .exec();
+
+    // Reward comment author for being liked
+    await updateUserExp(comment.user.toString(), 2);
 
     res.status(200).json({
       message: 'Comment liked',
@@ -615,6 +692,9 @@ router.delete('/:postId/comment/:commentId/like', async (req: Request, res: Resp
     // Remove the userId from the liked_by array
     comment.liked_by = comment.liked_by.filter((id: any) => id.toString() !== userId);
     await post.save();
+
+    // Penalize for losing a like
+    await updateUserExp(comment.user.toString(), -2);
 
     res.status(200).json({ message: 'Comment unliked', comment });
   } catch (error) {

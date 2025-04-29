@@ -9,6 +9,22 @@ export interface IImageModel {
   delete_token?: string;
 }
 
+export interface ITripRating {
+  /** The user who rated */
+  user: string; // user _id
+  /** 1–5 */
+  value: number;
+}
+const TripRatingSchema = new Schema(
+  {
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    value: { type: Number, min: 1, max: 5, required: true },
+  },
+  {
+    _id: false,
+  },
+);
+
 export interface ITrip extends Document {
   name: string;
   location: {
@@ -22,6 +38,10 @@ export interface ITrip extends Document {
   createdBy: mongoose.Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+  /** All user‐submitted ratings on this trip */
+  ratings: ITripRating[];
+  /** Average of `ratings.value` (0 if none) */
+  avg_rating?: number;
 }
 
 export const ImageModalSchema = new Schema<IImageModel>(
@@ -50,6 +70,8 @@ const tripSchema = new Schema(
     },
     description: { type: String },
     images: [ImageModalSchema],
+    ratings: [TripRatingSchema],
+    avg_rating: { type: Number, default: 0.0, min: 0.0, max: 5.0 },
     main_image: ImageModalSchema,
     tags: [{ type: String, index: true }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

@@ -1,8 +1,11 @@
 import mongoose, { Document, Schema, Model, model } from 'mongoose';
 import { IImageModel, ImageModalSchema } from './Trip';
 import { removeOldImage } from '../helpers/cloudinaryHelper';
+import { Notification } from './Notification';
+import { User } from './User';
 
 export interface IComment {
+  _id?: mongoose.Types.ObjectId; // ← add this
   user: mongoose.Schema.Types.ObjectId;
   text: string;
   created_at: Date;
@@ -58,19 +61,122 @@ const postSchema = new Schema<IPost>(
 postSchema.pre('findOneAndDelete', async function (next) {
   const docToDelete = await this.model.findOne(this.getFilter());
 
-  if (!docToDelete || !docToDelete.images || docToDelete.images.length === 0) {
+  if (!docToDelete) {
     return next();
   }
 
-  for (const img of docToDelete.images) {
-    // Assuming Cloudinary public_id is stored in `img.image_id`
-    const publicId = img.image_id;
-    if (publicId) {
-      await removeOldImage(publicId);
+  // Remove each image in images[]
+  if (docToDelete.images && docToDelete.images.length > 0) {
+    for (const img of docToDelete.images) {
+      const publicId = img.image_id;
+      if (publicId) {
+        await removeOldImage(publicId);
+      }
     }
+  }
+
+  const postIdStr = docToDelete._id.toString();
+  const orFilter = [
+    { type: 'post_like', 'data.postId': postIdStr },
+    { type: 'post_comment', 'data.postId': postIdStr },
+    { type: 'comment_like', 'data.postId': postIdStr },
+    { type: 'post_create_in_group', 'data.postId': postIdStr },
+  ];
+
+  // first, decrement unread counts for those _unread_ notes
+  const notes = await Notification.find({
+    $or: orFilter,
+    read: false,
+  })
+    .select('to')
+    .lean();
+
+  if (notes.length) {
+    notes.map(async (n) => await User.updateMany({ _id: { $in: n.to } }, { $inc: { unreadNotifications: -1 } }));
+  }
+
+  // then delete them all (read or unread)
+  await Notification.deleteMany({
+    $or: orFilter,
+  });
+
+  // Decrement author’s total_likes & total_shares
+  const authorId = docToDelete.author; // or whatever field you use
+  const likesCount = docToDelete.likes?.length ?? docToDelete.likeCount ?? 0;
+  const sharesCount = docToDelete.shares?.length ?? docToDelete.shareCount ?? 0;
+  if (authorId && (likesCount || sharesCount)) {
+    await User.updateOne(
+      { _id: authorId },
+      {
+        $inc: {
+          'social.total_likes': -likesCount,
+          'social.total_shares': -sharesCount,
+        },
+      },
+    );
   }
 
   next();
 });
 
+postSchema.pre('deleteMany', { document: false, query: true }, async function (next) {
+  // 1) get the filter used in deleteMany()
+  const filter = this.getFilter();
+
+  // 2) load all posts matching that filter (we need images & IDs)
+  const postsToDelete = await this.model.find(filter).select('_id images').lean();
+
+  if (postsToDelete.length) {
+    // 3) remove each post's images from Cloudinary
+    for (const post of postsToDelete) {
+      for (const img of post.images) {
+        if (img.image_id) {
+          await removeOldImage(img.image_id);
+        }
+      }
+    }
+
+    // 4) build notification filter for all these posts
+    const postIds = postsToDelete.map((p) => p._id?.toString());
+    const notifFilter = [
+      { type: 'post_like', 'data.postId': { $in: postIds } },
+      { type: 'post_comment', 'data.postId': { $in: postIds } },
+      { type: 'comment_like', 'data.postId': { $in: postIds } },
+      { type: 'post_create_in_group', 'data.postId': { $in: postIds } },
+    ];
+
+    // 5) find ALL unread notifications for these posts
+    const notes = await Notification.find({
+      $or: notifFilter,
+      read: false,
+    })
+      .select('to')
+      .lean();
+
+    if (notes.length) {
+      // 6) tally counts per user
+      const countsByUser = notes.reduce<Record<string, number>>((acc, { to }) => {
+        const uid = to.toString();
+        acc[uid] = (acc[uid] || 0) + 1;
+        return acc;
+      }, {});
+
+      // 7) bulk-decrement each user's unreadNotifications
+      const bulkOps = Object.entries(countsByUser).map(([uid, cnt]) => ({
+        updateOne: {
+          filter: { _id: new mongoose.Types.ObjectId(uid) },
+          update: { $inc: { unreadNotifications: -cnt } },
+        },
+      }));
+      if (bulkOps.length) {
+        await User.bulkWrite(bulkOps);
+      }
+    }
+
+    // 8) delete all notifications for these posts
+    await Notification.deleteMany({ $or: notifFilter });
+  }
+
+  next();
+});
 export const Post: Model<IPost> = model<IPost>('Post', postSchema);
