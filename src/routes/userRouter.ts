@@ -125,7 +125,7 @@ router.get('/partial-all', async (_req: Request, res: Response) => {
   try {
     // Query all users and select only the required fields:
     // _id, username, profile_picture, first_name, and last_name.
-    const users = await User.find({}).select('username profile_picture first_name last_name');
+    const users = await User.find({}).select('username profile_picture first_name last_name, firebase_id');
 
     // Return the users array as the response
     res.status(200).json(users);
