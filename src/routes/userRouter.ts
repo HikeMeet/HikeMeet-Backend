@@ -196,7 +196,7 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
 
     // Populate friend user data with only the selected fields
     const populateOptions = {
-      path: 'friends.id',
+      path: 'friends.id chatrooms_with',
       select: '_id username profile_picture first_name last_name firebase_id',
     };
 

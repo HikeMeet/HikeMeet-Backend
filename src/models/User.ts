@@ -39,6 +39,7 @@ export interface IUser extends Document {
     status: 'request_sent' | 'request_received' | 'accepted' | 'blocked';
     id: mongoose.Schema.Types.ObjectId;
   }[];
+  chatrooms_with: mongoose.Schema.Types.ObjectId[];
   trip_history: ITripHistoryEntry[];
   firebase_id: string;
   pushTokens: string[];
@@ -90,6 +91,7 @@ const userSchema = new Schema({
       _id: false, //cancel _id automatic (its was problem)
     },
   ],
+  chatrooms_with: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
   favorite_trips: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: [] }],
   trip_history: [tripHistorySchema],
   firebase_id: { type: String },
@@ -109,6 +111,9 @@ userSchema.post('findOneAndDelete', async function (this: any, deletedDoc, next)
     try {
       // ✅ Remove user from others' friend lists
       await this.model.updateMany({ 'friends.id': deletedDoc._id }, { $pull: { friends: { id: deletedDoc._id } } });
+
+      // ✅ Remove user from all other users chatlist if im there
+      await this.model.updateMany({ chatrooms_with: deletedDoc._id }, { $pull: { chatrooms_with: deletedDoc._id } });
 
       // ✅ Remove user's profile image from Cloudinary
       const publicId = deletedDoc.profile_picture?.image_id;
