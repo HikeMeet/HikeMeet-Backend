@@ -106,22 +106,41 @@ router.get('/all', async (req: Request, res: Response) => {
     if (privacy) {
       filter.privacy = privacy;
     }
-    if (friendsOnly === 'true') {
-      if (!userId) {
-        return res.status(400).json({ error: 'userId is required for friendsOnly filter' });
-      }
-      // Retrieve the current user with their friends list.
-      const currentUser = await User.findById(userId).exec();
+
+    let blockedUserIds: string[] = [];
+    if (userId) {
+      const currentUser = await User.findById(userId);
       if (!currentUser) {
         return res.status(404).json({ error: 'Current user not found' });
       }
-      // Extract friend IDs where status is accepted.
-      const friendIds = (currentUser.friends || []).filter((friend: any) => friend.status === 'accepted').map((friend: any) => friend.id);
-      // Apply filter to return only posts whose author is in the friends list.
-      filter.author = { $in: friendIds };
-    } else if (userId) {
-      // If friendsOnly is not true but userId is provided, filter posts by that user.
-      filter.author = userId;
+
+      const blockedByMe = (currentUser.friends || []).filter((friend) => friend.status === 'blocked').map((friend) => friend.id.toString());
+
+      const blockedMeDocs = await User.find({
+        friends: {
+          $elemMatch: {
+            id: new mongoose.Types.ObjectId(userId as string),
+            status: 'blocked',
+          },
+        },
+      }).select('_id');
+
+      const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
+
+      blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
+
+      if (friendsOnly === 'true') {
+        const acceptedFriendIds = (currentUser.friends || [])
+          .filter((friend: any) => friend.status === 'accepted')
+          .map((friend: any) => friend.id.toString());
+
+        filter.author = {
+          $in: acceptedFriendIds,
+          $nin: blockedUserIds,
+        };
+      } else {
+        filter.author = { $nin: blockedUserIds };
+      }
     }
 
     if (groupId) {
@@ -146,7 +165,17 @@ router.get('/all', async (req: Request, res: Response) => {
       .sort({ created_at: -1 })
       .exec();
 
-    res.status(200).json({ posts });
+    //also filter comment
+    const filteredPosts = posts.map((post) => {
+      if (!post.comments) return post;
+      post.comments = post.comments.filter((comment: any) => {
+        const commentUserId = comment.user?._id?.toString();
+        return commentUserId && !blockedUserIds.includes(commentUserId);
+      });
+      return post;
+    });
+
+    res.status(200).json({ posts: filteredPosts });
   } catch (error) {
     console.error('Error fetching posts:', error);
     res.status(500).json({ error: 'Internal server error' });
