@@ -40,6 +40,7 @@ export interface IUser extends Document {
     id: mongoose.Schema.Types.ObjectId;
   }[];
   chatrooms_with: mongoose.Schema.Types.ObjectId[];
+  chatrooms_groups: mongoose.Schema.Types.ObjectId[];
   trip_history: ITripHistoryEntry[];
   firebase_id: string;
   pushTokens: string[];
@@ -92,6 +93,7 @@ const userSchema = new Schema({
     },
   ],
   chatrooms_with: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
+  chatrooms_groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: [] }],
   favorite_trips: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: [] }],
   trip_history: [tripHistorySchema],
   firebase_id: { type: String },

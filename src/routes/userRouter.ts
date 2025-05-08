@@ -195,10 +195,20 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     let user;
 
     // Populate friend user data with only the selected fields
-    const populateOptions = {
-      path: 'friends.id chatrooms_with',
-      select: '_id username profile_picture first_name last_name firebase_id',
-    };
+    const populateOptions = [
+      {
+        path: 'friends.id',
+        select: '_id username profile_picture first_name last_name firebase_id',
+      },
+      {
+        path: 'chatrooms_with',
+        select: '_id username profile_picture first_name last_name firebase_id',
+      },
+      {
+        path: 'chatrooms_groups',
+        select: '_id name main_image members',
+      },
+    ];
 
     if (mongoId === 'all') {
       console.log('Get all users');
@@ -258,6 +268,7 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     } else {
       userObj = mapFriends(userObj);
     }
+    console.log('userObj', userObj);
     res.status(200).json(userObj);
   } catch (error) {
     console.error('Error fetching user:', error);

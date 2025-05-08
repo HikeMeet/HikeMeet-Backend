@@ -2,13 +2,12 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/User';
 import { authenticate } from '../middlewares/authenticate';
 import mongoose from 'mongoose';
+import { Group } from '../models/Group';
 
 const router = express.Router();
 
-/**
- * GET /api/chatrooms
- * Returns an array of your chat partners' Mongo IDs and profile info.
- */
+// GET /api/chatrooms
+// Returns an array of your chat partners' Mongo IDs and profile info.
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
@@ -22,20 +21,19 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
     // 2) Fetch those partner documents, selecting only the needed fields
     const partners = await User.find({ _id: { $in: me.chatrooms_with } }, '_id username profile_picture first_name last_name firebase_id');
+    const groups = await User.find({ _id: { $in: me.chatrooms_groups } }, '_id name main_image members');
 
     // 3) Return them
-    return res.json({ chatroomsWith: partners });
+    return res.json({ chatrooms_with: partners, chatrooms_groups: groups });
   } catch (err) {
     console.error('Error fetching chatrooms:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
 
-/**
- * POST /api/chatrooms/:partnerId
- * Add a partner's Mongo _id to your chatrooms_with array.
- */
-router.post('/:partnerId', authenticate, async (req: Request, res: Response) => {
+// POST /api/chatrooms/:partnerId
+// Add a partner's Mongo _id to your chatrooms_with array.
+router.post('/user/:partnerId', authenticate, async (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(404).json({ error: 'Missing user data' });
   }
@@ -63,18 +61,16 @@ router.post('/:partnerId', authenticate, async (req: Request, res: Response) => 
     const me = await User.findOne({ firebase_id: meFirebaseUid }, 'chatrooms_with');
     const partners = await User.find({ _id: { $in: me!.chatrooms_with } }, '_id username profile_picture first_name last_name firebase_id');
 
-    return res.json({ chatroomsWith: partners });
+    return res.json({ chatrooms_with: partners });
   } catch (err) {
     console.error('Error adding chatroom:', err);
     return res.status(500).json({ error: 'Could not add chatroom' });
   }
 });
 
-/**
- * DELETE /api/chatrooms/:partnerId
- * Remove a partner's Mongo _id from your chatrooms_with array.
- */
-router.delete('/:partnerId', authenticate, async (req: Request, res: Response) => {
+// DELETE /api/chatrooms/:partnerId
+// Remove a partner's Mongo _id from your chatrooms_with array.
+router.delete('/user/:partnerId', authenticate, async (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(404).json({ error: 'Missing user data' });
   }
@@ -93,10 +89,66 @@ router.delete('/:partnerId', authenticate, async (req: Request, res: Response) =
     const me = await User.findOne({ firebase_id: meUid }, 'chatrooms_with');
     const partners = await User.find({ _id: { $in: me?.chatrooms_with } }, '_id username profile_picture first_name last_name firebase_id');
 
-    return res.json({ chatroomsWith: partners });
+    return res.json({ chatrooms_with: partners });
   } catch (err) {
     console.error('Error removing chatroom:', err);
     return res.status(500).json({ error: 'Could not remove chatroom' });
+  }
+});
+
+// POST /api/chat/group/:groupId
+// Join/join back a group chat
+router.post('/group/:groupId', authenticate, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(404).json({ error: 'Missing user data' });
+  const meUid = req.user.uid;
+  const groupId = req.params.groupId;
+
+  if (!mongoose.isValidObjectId(groupId)) {
+    return res.status(400).json({ error: 'Invalid groupId' });
+  }
+
+  try {
+    // ensure group exists
+    const group = await Group.findById(groupId);
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    // add to your chatrooms_groups
+    await User.updateOne({ firebase_id: meUid }, { $addToSet: { chatrooms_groups: groupId } });
+
+    // return updated list of groups
+    const me = await User.findOne({ firebase_id: meUid }, 'chatrooms_groups');
+    const groups = await Group.find({ _id: { $in: me?.chatrooms_groups } }, '_id name main_image members');
+
+    return res.json({ chatrooms_groups: groups });
+  } catch (err) {
+    console.error('Error adding group chatroom:', err);
+    return res.status(500).json({ error: 'Could not add group chatroom' });
+  }
+});
+
+// DELETE /api/chat/group/:groupId
+// Leave a group chat
+router.delete('/group/:groupId', authenticate, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(404).json({ error: 'Missing user data' });
+  const meUid = req.user.uid;
+  const groupId = req.params.groupId;
+
+  if (!mongoose.isValidObjectId(groupId)) {
+    return res.status(400).json({ error: 'Invalid groupId' });
+  }
+
+  try {
+    // pull out of your chatrooms_groups
+    await User.updateOne({ firebase_id: meUid }, { $pull: { chatrooms_groups: groupId } });
+
+    // return updated list of groups
+    const me = await User.findOne({ firebase_id: meUid }, 'chatrooms_groups');
+    const groups = await Group.find({ _id: { $in: me?.chatrooms_groups } }, '_id name main_image members');
+
+    return res.json({ chatrooms_groups: groups });
+  } catch (err) {
+    console.error('Error removing group chatroom:', err);
+    return res.status(500).json({ error: 'Could not remove group chatroom' });
   }
 });
 
