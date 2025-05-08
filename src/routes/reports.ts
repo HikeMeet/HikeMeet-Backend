@@ -8,7 +8,7 @@ import { authenticate } from '../middlewares/authenticate';
 const router = express.Router();
 
 // POST /api/report - Submit a new report
-router.post('/s', authenticate, async (req: Request, res: Response) => {
+router.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const firebaseUid = req.user?.uid;
     const { targetId, targetType, reason } = req.body;
@@ -50,6 +50,9 @@ router.post('/s', authenticate, async (req: Request, res: Response) => {
           targetType,
         },
       });
+
+      // Increment their unread notification counter
+      await User.updateOne({ _id: admin._id }, { $inc: { unreadNotifications: 1 } });
     }
 
     return res.status(201).json({ message: 'Report submitted successfully', report: newReport });
