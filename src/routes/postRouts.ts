@@ -108,6 +108,7 @@ router.get('/all', async (req: Request, res: Response) => {
     }
 
     let blockedUserIds: string[] = [];
+
     if (userId) {
       const currentUser = await User.findById(userId);
       if (!currentUser) {
@@ -128,11 +129,9 @@ router.get('/all', async (req: Request, res: Response) => {
       }).select('_id');
 
       const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
-
       blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
 
-      ///////// END
-
+      // Case 1: Friends only feed
       if (friendsOnly === 'true') {
         const acceptedFriendIds = (currentUser.friends || [])
           .filter((friend: any) => friend.status === 'accepted')
@@ -143,25 +142,23 @@ router.get('/all', async (req: Request, res: Response) => {
           $nin: blockedUserIds,
         };
 
-        // all post without the block user's post
+        // Case 2: Profile view
+      } else if (!groupId && privacy !== 'public') {
+        filter.author = {
+          $eq: userId,
+          $nin: blockedUserIds,
+        };
+
+        // Case 3: Public feed (home page)
       } else {
-        if (privacy === 'public') {
-          filter.author = { $nin: blockedUserIds };
-        } else {
-          filter.author = {
-            $eq: userId,
-            $nin: blockedUserIds,
-          };
-        }
+        filter.author = { $nin: blockedUserIds };
       }
     }
 
-    //filter by group
+    // Case 4: Group posts
     if (groupId) {
       filter.in_group = groupId;
-    }
-    //filter not in group
-    else {
+    } else {
       filter.in_group = { $exists: false };
     }
 
@@ -186,7 +183,7 @@ router.get('/all', async (req: Request, res: Response) => {
       .sort({ created_at: -1 })
       .exec();
 
-    //filter comment of blocked users
+    // Filter out comments from blocked users
     const filteredPosts = posts.map((post) => {
       if (!post.comments) return post;
       post.comments = post.comments.filter((comment: any) => {
