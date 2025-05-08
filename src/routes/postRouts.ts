@@ -114,6 +114,8 @@ router.get('/all', async (req: Request, res: Response) => {
         return res.status(404).json({ error: 'Current user not found' });
       }
 
+      ///////// A list of users who are blocked by me or who have blocked me.
+
       const blockedByMe = (currentUser.friends || []).filter((friend) => friend.status === 'blocked').map((friend) => friend.id.toString());
 
       const blockedMeDocs = await User.find({
@@ -129,6 +131,8 @@ router.get('/all', async (req: Request, res: Response) => {
 
       blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
 
+      ///////// END
+
       if (friendsOnly === 'true') {
         const acceptedFriendIds = (currentUser.friends || [])
           .filter((friend: any) => friend.status === 'accepted')
@@ -138,15 +142,26 @@ router.get('/all', async (req: Request, res: Response) => {
           $in: acceptedFriendIds,
           $nin: blockedUserIds,
         };
+
+        // all post without the block user's post
       } else {
-        filter.author = { $nin: blockedUserIds };
+        if (privacy === 'public') {
+          filter.author = { $nin: blockedUserIds };
+        } else {
+          filter.author = {
+            $eq: userId,
+            $nin: blockedUserIds,
+          };
+        }
       }
     }
 
+    //filter by group
     if (groupId) {
       filter.in_group = groupId;
-    } else {
-      // Return only posts that do not have an in_group field
+    }
+    //filter not in group
+    else {
       filter.in_group = { $exists: false };
     }
 
@@ -160,12 +175,18 @@ router.get('/all', async (req: Request, res: Response) => {
       .populate('attached_trips')
       .populate('attached_groups')
       .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
-      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
-      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
+      .populate({
+        path: 'comments',
+        populate: { path: 'user', select: 'username profile_picture last_name first_name' },
+      })
+      .populate({
+        path: 'comments',
+        populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' },
+      })
       .sort({ created_at: -1 })
       .exec();
 
-    //also filter comment
+    //filter comment of blocked users
     const filteredPosts = posts.map((post) => {
       if (!post.comments) return post;
       post.comments = post.comments.filter((comment: any) => {
