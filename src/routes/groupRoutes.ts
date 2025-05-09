@@ -419,7 +419,8 @@ router.post('/:groupId/remove-member/:userId', async (req: Request, res: Respons
     if (memberIndex === -1) {
       return res.status(400).json({ error: 'User is not a member of this group' });
     }
-
+    // Remove the group from the user's list of groups
+    await User.updateOne({ _id: new mongoose.Types.ObjectId(userId) }, { $pull: { chatrooms_groups: new mongoose.Types.ObjectId(groupId) } });
     // Only allow removal if:
     // - the removed_by user is the same as the user being removed (self-removal)
     // OR
@@ -450,12 +451,10 @@ router.post('/:groupId/remove-member/:userId', async (req: Request, res: Respons
   }
 });
 
-/**
- * POST /:groupId/join - Join a group.
- * For public groups, the user is immediately added as a member.
- * For private groups, a join request is added to the pending list.
- * Expected to receive { "userId": "..." } in the body.
- */
+// POST /:groupId/join - Join a group.
+// For public groups, the user is immediately added as a member.
+// For private groups, a join request is added to the pending list.
+// Expected to receive { "userId": "..." } in the body.
 router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
   try {
     const { groupId, userId } = req.params;
@@ -638,14 +637,11 @@ router.post('/:groupId/cancel-join/:userId', async (req: Request, res: Response)
   }
 });
 
-/**
- * GET /list - Get all groups.
- * Query options:
- *   - privacy: "public" or "private"
- *   - status: "planned", "active", or "completed"
- * Example: GET /list?privacy=public&status=active
- */
-
+// GET /list - Get all groups.
+// Query options:
+//   - privacy: "public" or "private"
+//   - status: "planned", "active", or "completed"
+// Example: GET /list?privacy=public&status=active
 router.get('/user/:userId', async (req, res) => {
   const { userId } = req.params;
 

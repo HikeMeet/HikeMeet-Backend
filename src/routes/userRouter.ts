@@ -125,7 +125,7 @@ router.get('/partial-all', async (_req: Request, res: Response) => {
   try {
     // Query all users and select only the required fields:
     // _id, username, profile_picture, first_name, and last_name.
-    const users = await User.find({}).select('username profile_picture first_name last_name');
+    const users = await User.find({}).select('username profile_picture first_name last_name firebase_id');
 
     // Return the users array as the response
     res.status(200).json(users);
@@ -195,10 +195,20 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     let user;
 
     // Populate friend user data with only the selected fields
-    const populateOptions = {
-      path: 'friends.id',
-      select: '_id username profile_picture first_name last_name',
-    };
+    const populateOptions = [
+      {
+        path: 'friends.id',
+        select: '_id username profile_picture first_name last_name firebase_id',
+      },
+      {
+        path: 'chatrooms_with',
+        select: '_id username profile_picture first_name last_name firebase_id',
+      },
+      {
+        path: 'chatrooms_groups',
+        select: '_id name main_image members',
+      },
+    ];
 
     if (mongoId === 'all') {
       console.log('Get all users');
@@ -258,6 +268,7 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     } else {
       userObj = mapFriends(userObj);
     }
+    console.log('userObj', userObj);
     res.status(200).json(userObj);
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -275,7 +286,7 @@ router.post('/:id/update', async (req: Request, res: Response) => {
     // Find the user and update
     const populateOptions = {
       path: 'friends.id',
-      select: '_id username profile_picture first_name last_name',
+      select: '_id username profile_picture first_name last_name firebase_id',
     };
     const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true }).populate(populateOptions).exec();
     if (!updatedUser) {

@@ -38,7 +38,6 @@ export interface IGroup extends Document {
   meeting_point?: string;
   images?: IImageModel[];
   main_image?: IImageModel;
-  chat_room_id?: mongoose.Schema.Types.ObjectId;
   created_at: Date;
   updated_at: Date;
 }
@@ -90,7 +89,6 @@ const groupSchema = new Schema<IGroup>(
     meeting_point: { type: String },
     images: [ImageModalSchema],
     main_image: ImageModalSchema,
-    chat_room_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom' },
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } },
 );

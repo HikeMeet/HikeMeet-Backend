@@ -233,6 +233,9 @@ router.post('/accept-request', async (req: Request, res: Response) => {
     await updateUserExp(currentUserId, 5);
     await updateUserExp(targetUserId, 5);
 
+    await User.updateOne({ _id: currentUserId }, { $addToSet: { chatrooms_with: targetUserId } });
+    await User.updateOne({ _id: targetUserId }, { $addToSet: { chatrooms_with: currentUserId } });
+
     // —— NEW: notify the original requester
     await notifyFriendRequestAccepted(currentUserId as mongoose.Types.ObjectId, targetUserId as mongoose.Types.ObjectId);
 
@@ -359,6 +362,9 @@ router.post('/block', async (req: Request, res: Response) => {
     // Save both users
     await user.save();
     await targetUser.save();
+
+    await User.updateOne({ _id: currentUserId }, { $pull: { chatrooms_with: targetUserId } });
+    await User.updateOne({ _id: targetUserId }, { $pull: { chatrooms_with: currentUserId } });
 
     res.status(200).json({ message: 'User blocked successfully.' });
   } catch (error) {
