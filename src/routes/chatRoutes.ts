@@ -31,7 +31,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/chatrooms/:partnerId
+// POST /api/chat/:partnerId
 // Add a partner's Mongo _id to your chatrooms_with array.
 router.post('/user/:partnerId', authenticate, async (req: Request, res: Response) => {
   if (!req.user) {
@@ -59,7 +59,7 @@ router.post('/user/:partnerId', authenticate, async (req: Request, res: Response
 
     // 4) Return the populated list
     const me = await User.findOne({ firebase_id: meFirebaseUid }, 'chatrooms_with');
-    const partners = await User.find({ _id: { $in: me!.chatrooms_with } }, '_id username profile_picture first_name last_name firebase_id');
+    const partners = await User.find({ _id: { $in: me?.chatrooms_with } }, '_id username profile_picture first_name last_name firebase_id');
 
     return res.json({ chatrooms_with: partners });
   } catch (err) {
@@ -68,7 +68,7 @@ router.post('/user/:partnerId', authenticate, async (req: Request, res: Response
   }
 });
 
-// DELETE /api/chatrooms/:partnerId
+// DELETE /api/chat/:partnerId
 // Remove a partner's Mongo _id from your chatrooms_with array.
 router.delete('/user/:partnerId', authenticate, async (req: Request, res: Response) => {
   if (!req.user) {
