@@ -419,7 +419,8 @@ router.post('/:groupId/remove-member/:userId', async (req: Request, res: Respons
     if (memberIndex === -1) {
       return res.status(400).json({ error: 'User is not a member of this group' });
     }
-
+    // Remove the group from the user's list of groups
+    await User.updateOne({ _id: new mongoose.Types.ObjectId(userId) }, { $pull: { chatrooms_groups: new mongoose.Types.ObjectId(groupId) } });
     // Only allow removal if:
     // - the removed_by user is the same as the user being removed (self-removal)
     // OR
