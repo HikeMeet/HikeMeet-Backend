@@ -106,28 +106,59 @@ router.get('/all', async (req: Request, res: Response) => {
     if (privacy) {
       filter.privacy = privacy;
     }
-    if (friendsOnly === 'true') {
-      if (!userId) {
-        return res.status(400).json({ error: 'userId is required for friendsOnly filter' });
-      }
-      // Retrieve the current user with their friends list.
-      const currentUser = await User.findById(userId).exec();
+
+    let blockedUserIds: string[] = [];
+
+    if (userId) {
+      const currentUser = await User.findById(userId);
       if (!currentUser) {
         return res.status(404).json({ error: 'Current user not found' });
       }
-      // Extract friend IDs where status is accepted.
-      const friendIds = (currentUser.friends || []).filter((friend: any) => friend.status === 'accepted').map((friend: any) => friend.id);
-      // Apply filter to return only posts whose author is in the friends list.
-      filter.author = { $in: friendIds };
-    } else if (userId) {
-      // If friendsOnly is not true but userId is provided, filter posts by that user.
-      filter.author = userId;
+
+      ///////// A list of users who are blocked by me or who have blocked me.
+
+      const blockedByMe = (currentUser.friends || []).filter((friend) => friend.status === 'blocked').map((friend) => friend.id.toString());
+
+      const blockedMeDocs = await User.find({
+        friends: {
+          $elemMatch: {
+            id: new mongoose.Types.ObjectId(userId as string),
+            status: 'blocked',
+          },
+        },
+      }).select('_id');
+
+      const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
+      blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
+
+      // Case 1: Friends only feed
+      if (friendsOnly === 'true') {
+        const acceptedFriendIds = (currentUser.friends || [])
+          .filter((friend: any) => friend.status === 'accepted')
+          .map((friend: any) => friend.id.toString());
+
+        filter.author = {
+          $in: acceptedFriendIds,
+          $nin: blockedUserIds,
+        };
+
+        // Case 2: Profile view
+      } else if (!groupId && privacy !== 'public') {
+        filter.author = {
+          $eq: userId,
+          $nin: blockedUserIds,
+        };
+
+        // Case 3: Public feed (home page)
+      } else {
+        filter.author = { $nin: blockedUserIds };
+      }
     }
 
+    // Case 4: Group posts
     if (groupId) {
       filter.in_group = groupId;
     } else {
-      // Return only posts that do not have an in_group field
       filter.in_group = { $exists: false };
     }
 
@@ -141,12 +172,28 @@ router.get('/all', async (req: Request, res: Response) => {
       .populate('attached_trips')
       .populate('attached_groups')
       .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
-      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
-      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
+      .populate({
+        path: 'comments',
+        populate: { path: 'user', select: 'username profile_picture last_name first_name' },
+      })
+      .populate({
+        path: 'comments',
+        populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' },
+      })
       .sort({ created_at: -1 })
       .exec();
 
-    res.status(200).json({ posts });
+    // Filter out comments from blocked users
+    const filteredPosts = posts.map((post) => {
+      if (!post.comments) return post;
+      post.comments = post.comments.filter((comment: any) => {
+        const commentUserId = comment.user?._id?.toString();
+        return commentUserId && !blockedUserIds.includes(commentUserId);
+      });
+      return post;
+    });
+
+    res.status(200).json({ posts: filteredPosts });
   } catch (error) {
     console.error('Error fetching posts:', error);
     res.status(500).json({ error: 'Internal server error' });

@@ -2,13 +2,14 @@ import express, { Request, Response } from 'express';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Group } from '../models/Group';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
 // Search Users
 router.get('/users', async (req: Request, res: Response) => {
   try {
-    const { query } = req.query;
+    const { query, userId } = req.query;
 
     // If query is provided, build the search criteria; otherwise, return all users.
     const searchCriteria =
@@ -22,7 +23,30 @@ router.get('/users', async (req: Request, res: Response) => {
           }
         : {};
 
-    // Find users based on the criteria.
+    let blockedUserIds: string[] = [];
+
+    if (userId) {
+      const currentUser = await User.findById(userId);
+      if (currentUser) {
+        const blockedByMe = currentUser.friends.filter((f) => f.status === 'blocked').map((f) => f.id.toString());
+
+        const blockedMeDocs = await User.find({
+          friends: {
+            $elemMatch: {
+              id: new mongoose.Types.ObjectId(userId as string),
+              status: 'blocked',
+            },
+          },
+        }).select('_id');
+
+        const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
+
+        blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
+
+        Object.assign(searchCriteria, { _id: { $nin: blockedUserIds } });
+      }
+    }
+
     const users = await User.find(searchCriteria);
 
     // Return an empty array if no users are found.
@@ -63,7 +87,7 @@ router.get('/groups', async (req: Request, res: Response) => {
 
 router.get('/all', async (req: Request, res: Response) => {
   try {
-    const { query } = req.query;
+    const { query, userId } = req.query;
 
     const userCriteria =
       query && typeof query === 'string'
@@ -75,6 +99,28 @@ router.get('/all', async (req: Request, res: Response) => {
             ],
           }
         : {};
+
+    // Add blocked users filter if userId is provided
+    if (userId) {
+      const currentUser = await User.findById(userId);
+      if (currentUser) {
+        const blockedByMe = currentUser.friends.filter((f) => f.status === 'blocked').map((f) => f.id.toString());
+
+        const blockedMeDocs = await User.find({
+          friends: {
+            $elemMatch: {
+              id: new mongoose.Types.ObjectId(userId as string),
+              status: 'blocked',
+            },
+          },
+        }).select('_id');
+
+        const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
+        const blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
+
+        Object.assign(userCriteria, { _id: { $nin: blockedUserIds } });
+      }
+    }
 
     const tripCriteria = query && typeof query === 'string' ? { name: { $regex: query, $options: 'i' } } : {};
 
