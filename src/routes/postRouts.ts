@@ -102,22 +102,21 @@ router.get('/all', async (req: Request, res: Response) => {
   try {
     const { privacy, inGroup: groupId, userId, friendsOnly } = req.query;
 
-    // ✅ Convert viewerId to string to avoid BSON/ObjectId issues
+    // identify the viewer
     const viewerIdRaw = req.header('x-current-user') || userId;
     const viewerId = String(viewerIdRaw);
+
+    // Initial filter
     let filter: any = {};
     if (privacy) filter.privacy = privacy;
 
+    // Collect blocked users
     let blockedUserIds: string[] = [];
-
     if (viewerId) {
       const currentUser = await User.findById(viewerId);
-      if (!currentUser) {
-        console.warn('❌ Viewer not found:', viewerId);
-        return res.status(404).json({ error: 'Current user not found' });
-      }
+      if (!currentUser) return res.status(404).json({ error: 'Current user not found' });
 
-      const blockedByMe = (currentUser.friends || []).filter((friend) => friend.status === 'blocked').map((friend) => friend.id.toString());
+      const blockedByMe = (currentUser.friends || []).filter((f) => f.status === 'blocked').map((f) => f.id.toString());
 
       const blockedMeDocs = await User.find({
         friends: {
@@ -127,35 +126,35 @@ router.get('/all', async (req: Request, res: Response) => {
           },
         },
       }).select('_id');
-
       const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
+
       blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
 
+      // Friends-only feed
       if (friendsOnly === 'true') {
-        const acceptedFriendIds = (currentUser.friends || []).filter((f: any) => f.status === 'accepted').map((f: any) => f.id.toString());
+        const acceptedFriendIds = (currentUser.friends || []).filter((f) => f.status === 'accepted').map((f) => f.id.toString());
 
         filter.author = {
           $in: acceptedFriendIds,
           $nin: blockedUserIds,
         };
+
+        // Viewing a specific profile
       } else if (!groupId && privacy !== 'public') {
         const isMe = String(currentUser._id) === String(userId);
-
         if (isMe) {
           filter.author = { $eq: userId, $nin: blockedUserIds };
         } else {
           const targetUser = await User.findById(userId).select('privacySettings friends username');
           const visibility = targetUser?.privacySettings?.postVisibility ?? 'public';
           const isFriend = (targetUser?.friends || []).some((f) => f.id.toString() === String(viewerId) && f.status === 'accepted');
-
           if (visibility === 'friends' && !isFriend) {
-            return res.status(403).json({
-              message: 'This profile is private to friends only.',
-            });
+            return res.status(403).json({ message: 'This profile is private to friends only.' });
           }
-
           filter.author = { $eq: userId, $nin: blockedUserIds };
         }
+
+        // General/public feed
       } else {
         const visibleUsers = await User.find({
           _id: { $nin: blockedUserIds },
@@ -164,9 +163,8 @@ router.get('/all', async (req: Request, res: Response) => {
         const allowedUserIds = visibleUsers
           .filter((user) => {
             const visibility = user.privacySettings?.postVisibility ?? 'public';
-            const isFriend = (user.friends || []).some((f: any) => f.id.toString() === String(viewerId) && f.status === 'accepted');
+            const isFriend = (user.friends || []).some((f) => f.id.toString() === String(viewerId) && f.status === 'accepted');
             const isSelf = String(user._id) === String(viewerId);
-
             return visibility === 'public' || isFriend || isSelf;
           })
           .map((user) => String(user._id));
@@ -175,6 +173,7 @@ router.get('/all', async (req: Request, res: Response) => {
       }
     }
 
+    // Filter group posts if requested
     if (groupId) filter.in_group = groupId;
     else filter.in_group = { $exists: false };
 
