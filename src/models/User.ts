@@ -47,6 +47,10 @@ export interface IUser extends Document {
   mutedGroups: string[]; // list of Group IDs the user has muted
   mutedNotificationTypes: string[];
   favorite_trips: mongoose.Schema.Types.ObjectId[];
+  privacySettings?: {
+  profileVisibility?: 'public' | 'friends' | 'private';
+  postVisibility?: 'public' | 'friends' | 'private';
+  };
 }
 
 type IUserModel = Model<IUser>;
@@ -99,6 +103,19 @@ const userSchema = new Schema({
   updated_on: { type: Date, required: true, default: Date.now },
   mutedGroups: { type: [String], default: [] }, // list of Group IDs the user has muted
   mutedNotificationTypes: { type: [String], default: [] },
+  privacySettings: {
+  profileVisibility: {
+    type: String,
+    enum: ['public', 'friends', 'private'],
+    default: 'public',
+  },
+  postVisibility: {
+    type: String,
+    enum: ['public', 'friends', 'private'],
+    default: 'public',
+  },
+  }
+
 });
 
 // Mongoose Middleware: Cleanup friend references after a user is deleted
