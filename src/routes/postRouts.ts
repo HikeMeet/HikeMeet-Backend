@@ -105,13 +105,6 @@ router.get('/all', async (req: Request, res: Response) => {
     // ✅ Convert viewerId to string to avoid BSON/ObjectId issues
     const viewerIdRaw = req.header('x-current-user') || userId;
     const viewerId = String(viewerIdRaw);
-
-    console.log('🔵 Incoming request to /all');
-    console.log('👤 Profile Owner (userId):', userId);
-    console.log('🧍 Viewer (viewerId):', viewerId);
-    console.log('🔀 Friends only feed:', friendsOnly);
-    console.log('🔗 In group:', groupId);
-
     let filter: any = {};
     if (privacy) filter.privacy = privacy;
 
@@ -123,8 +116,6 @@ router.get('/all', async (req: Request, res: Response) => {
         console.warn('❌ Viewer not found:', viewerId);
         return res.status(404).json({ error: 'Current user not found' });
       }
-
-      console.log('✅ Viewer loaded:', currentUser.username);
 
       const blockedByMe = (currentUser.friends || []).filter((friend) => friend.status === 'blocked').map((friend) => friend.id.toString());
 
@@ -141,7 +132,6 @@ router.get('/all', async (req: Request, res: Response) => {
       blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
 
       if (friendsOnly === 'true') {
-        console.log('🟣 Friends-only feed mode');
         const acceptedFriendIds = (currentUser.friends || []).filter((f: any) => f.status === 'accepted').map((f: any) => f.id.toString());
 
         filter.author = {
@@ -149,25 +139,16 @@ router.get('/all', async (req: Request, res: Response) => {
           $nin: blockedUserIds,
         };
       } else if (!groupId && privacy !== 'public') {
-        console.log('🟠 Profile view logic');
-
         const isMe = String(currentUser._id) === String(userId);
-        console.log('🤔 Is viewer the same as profile owner?', isMe);
 
         if (isMe) {
-          console.log('👤 Viewing own profile – show all posts');
           filter.author = { $eq: userId, $nin: blockedUserIds };
         } else {
           const targetUser = await User.findById(userId).select('privacySettings friends username');
           const visibility = targetUser?.privacySettings?.postVisibility ?? 'public';
           const isFriend = (targetUser?.friends || []).some((f) => f.id.toString() === String(viewerId) && f.status === 'accepted');
 
-          console.log('👥 Viewing profile of:', targetUser?.username);
-          console.log('🔐 Post visibility:', visibility);
-          console.log('🤝 Are we friends?', isFriend);
-
           if (visibility === 'friends' && !isFriend) {
-            console.log('🚫 Access denied – not friends & profile is private');
             return res.status(403).json({
               message: 'This profile is private to friends only.',
             });
@@ -176,7 +157,6 @@ router.get('/all', async (req: Request, res: Response) => {
           filter.author = { $eq: userId, $nin: blockedUserIds };
         }
       } else {
-        console.log('🟡 Public feed (home) logic');
         const visibleUsers = await User.find({
           _id: { $nin: blockedUserIds },
         }).select('_id privacySettings friends username');
@@ -186,8 +166,6 @@ router.get('/all', async (req: Request, res: Response) => {
             const visibility = user.privacySettings?.postVisibility ?? 'public';
             const isFriend = (user.friends || []).some((f: any) => f.id.toString() === String(viewerId) && f.status === 'accepted');
             const isSelf = String(user._id) === String(viewerId);
-
-            console.log(`📄 Checking user: ${user.username}, visibility: ${visibility}, isFriend: ${isFriend}, isSelf: ${isSelf}`);
 
             return visibility === 'public' || isFriend || isSelf;
           })
@@ -201,8 +179,6 @@ router.get('/all', async (req: Request, res: Response) => {
     else filter.in_group = { $exists: false };
 
     const posts = await Post.find(filter).populate({ path: 'author', select: 'username profile_picture' }).sort({ created_at: -1 }).exec();
-
-    console.log('📦 Posts found:', posts.length);
 
     res.status(200).json({ posts });
   } catch (error) {
