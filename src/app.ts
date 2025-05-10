@@ -26,6 +26,7 @@ import friendsRoutes from './routes/friendsRoutes';
 import adminRoutes from './routes/admin';
 import notificationsRoutes from './routes/notificationsRoutes';
 import reports from './routes/reports';
+import privacy from './routes/privacy';
 
 import './firebaseAdmin';
 import tripRoutes from './routes/tripRoutes';
@@ -79,6 +80,7 @@ mongoose
     app.use('/api/cloudinary', cloudinaryRouts); //action on users (check status, add, remove, cancel request)
     app.use('/api/notification', notificationsRoutes);
     app.use('/api/report', reports);
+    app.use('/api/privacy', privacy);
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
