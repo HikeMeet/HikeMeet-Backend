@@ -65,7 +65,6 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 // GET /api/report - Admins fetch all reports
 router.get('/all', authenticate, async (req: Request, res: Response) => {
   try {
-    console.log('❌ Server response:', res.status);
     const firebaseUid = req.user?.uid;
 
     const currentUser = await User.findOne({ firebase_id: firebaseUid });
@@ -76,7 +75,6 @@ router.get('/all', authenticate, async (req: Request, res: Response) => {
 
     const reports = await Report.find().populate('reporter', 'username profile_picture').sort({ createdAt: -1 });
 
-    console.log('✅ Reports fetched:', reports.length);
     res.status(200).json({ reports });
   } catch (error) {
     console.error('❌ Error fetching reports:', error);
