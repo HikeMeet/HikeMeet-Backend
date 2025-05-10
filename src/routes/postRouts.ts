@@ -102,16 +102,15 @@ router.get('/all', async (req: Request, res: Response) => {
   try {
     const { privacy, inGroup: groupId, userId, friendsOnly } = req.query;
 
-    // identify the viewer
+    // Identify the viewer
     const viewerIdRaw = req.header('x-current-user') || userId;
     const viewerId = String(viewerIdRaw);
 
-    // Initial filter
     let filter: any = {};
     if (privacy) filter.privacy = privacy;
 
-    // Collect blocked users
     let blockedUserIds: string[] = [];
+
     if (viewerId) {
       const currentUser = await User.findById(viewerId);
       if (!currentUser) return res.status(404).json({ error: 'Current user not found' });
@@ -126,21 +125,23 @@ router.get('/all', async (req: Request, res: Response) => {
           },
         },
       }).select('_id');
-      const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
 
+      const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
       blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
 
-      // Friends-only feed
+      // 1. Friends-only feed
       if (friendsOnly === 'true') {
         const acceptedFriendIds = (currentUser.friends || []).filter((f) => f.status === 'accepted').map((f) => f.id.toString());
 
-        filter.author = {
-          $in: acceptedFriendIds,
-          $nin: blockedUserIds,
-        };
+        filter.author = { $in: acceptedFriendIds, $nin: blockedUserIds };
 
-        // Viewing a specific profile
-      } else if (!groupId && privacy !== 'public') {
+        // 2. Group feed
+      } else if (groupId) {
+        filter.in_group = groupId;
+        filter.author = { $nin: blockedUserIds };
+
+        // 3. Viewing specific profile
+      } else if (privacy !== 'public') {
         const isMe = String(currentUser._id) === String(userId);
         if (isMe) {
           filter.author = { $eq: userId, $nin: blockedUserIds };
@@ -154,11 +155,9 @@ router.get('/all', async (req: Request, res: Response) => {
           filter.author = { $eq: userId, $nin: blockedUserIds };
         }
 
-        // General/public feed
+        // 4. General/public feed
       } else {
-        const visibleUsers = await User.find({
-          _id: { $nin: blockedUserIds },
-        }).select('_id privacySettings friends username');
+        const visibleUsers = await User.find({ _id: { $nin: blockedUserIds } }).select('_id privacySettings friends username');
 
         const allowedUserIds = visibleUsers
           .filter((user) => {
@@ -173,9 +172,9 @@ router.get('/all', async (req: Request, res: Response) => {
       }
     }
 
-    // Filter group posts if requested
-    if (groupId) filter.in_group = groupId;
-    else filter.in_group = { $exists: false };
+    if (!groupId) {
+      filter.in_group = { $exists: false };
+    }
 
     const posts = await Post.find(filter).populate({ path: 'author', select: 'username profile_picture' }).sort({ created_at: -1 }).exec();
 
@@ -194,20 +193,15 @@ router.post('/share', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Original post ID is required for sharing.' });
     }
 
-    // Retrieve the original post document.
     const origPost = await Post.findById(original_post).lean();
     if (origPost && origPost.privacy === 'private' && !origPost.in_group) {
       return res.status(400).json({ error: 'Cannot share a private post.' });
     }
 
-    // Use the post that was clicked as the original_post, even if it’s already shared.
-    const finalOriginalPostId = original_post;
-
-    // Create the shared post document using the clicked post's ID.
     const sharedPostDoc = await Post.create({
       author,
       in_group: in_group || undefined,
-      content, // Optional commentary by the sharing user.
+      content,
       images: images || [],
       attached_trips: attached_trips || undefined,
       attached_groups: attached_groups || undefined,
@@ -216,21 +210,19 @@ router.post('/share', async (req: Request, res: Response) => {
       saves: [],
       comments: [],
       is_shared: true,
-      original_post: finalOriginalPostId,
+      original_post,
       privacy: privacy || 'public',
     });
-    await Post.findByIdAndUpdate(finalOriginalPostId, { $addToSet: { shares: author } });
 
-    // The user who shared the post gets 10 EXP points
+    await Post.findByIdAndUpdate(original_post, { $addToSet: { shares: author } });
+
     await updateUserExp(author, 10);
 
-    // The original author gets 5 EXP points
     const originalAuthor = origPost?.author?.toString();
     if (originalAuthor && originalAuthor !== author) {
       await updateUserExp(originalAuthor, 5);
     }
 
-    // Notify original author
     const orig = await Post.findById(original_post).select('author');
     if (orig?.author && sharedPostDoc._id) {
       await notifyPostShared(
@@ -241,12 +233,11 @@ router.post('/share', async (req: Request, res: Response) => {
       );
     }
 
-    // Populate fields.
     const sharedPost = await Post.findById(sharedPostDoc._id)
       .populate({ path: 'author', select: 'username profile_picture' })
       .populate({
         path: 'original_post',
-        select: '-likes -shares -saves -comments ',
+        select: '-likes -shares -saves -comments',
         populate: { path: 'author', select: 'username profile_picture' },
       })
       .populate('attached_trips')
