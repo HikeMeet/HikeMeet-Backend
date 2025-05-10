@@ -3,6 +3,7 @@ import { User } from '../models/User'; // Import the User model
 import mongoose from 'mongoose';
 import { DEFAULT_PROFILE_IMAGE_ID, DEFAULT_PROFILE_IMAGE_URL } from '../helpers/cloudinaryHelper';
 import { authenticate } from '../middlewares/authenticate';
+import { getRankByExp } from '../helpers/expHelper';
 
 const router = express.Router();
 
@@ -76,6 +77,7 @@ router.post('/insert', async (req: Request, res: Response) => {
       },
       bio: bio || '',
       exp: 0,
+      rank: getRankByExp(0),
       facebook_link: facebook_link || '',
       instagram_link: instagram_link || '',
       role: role || 'user', // Default to 'user'

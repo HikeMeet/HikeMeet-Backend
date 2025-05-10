@@ -25,6 +25,7 @@ export interface IUser extends Document {
   };
   bio?: string;
   exp?: number;
+  rank?: string;
   facebook_link?: string;
   instagram_link?: string;
   role: 'user' | 'admin';
@@ -65,6 +66,7 @@ const userSchema = new Schema({
   },
   bio: { type: String },
   exp: { type: Number },
+  rank: { type: String, default: 'Rookie' },
   facebook_link: { type: String },
   instagram_link: { type: String },
   role: { type: String, required: true, enum: ['user', 'admin'], default: 'user' },
