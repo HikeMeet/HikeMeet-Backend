@@ -652,6 +652,13 @@ export async function notifyReportCreated(reporterId: mongoose.Types.ObjectId, t
   // 2) Find all admins
   const admins = await User.find({ role: 'admin' }).select('_id').lean();
 
+  const navigation = {
+    name: 'AccountStack',
+    params: {
+      screen: 'AdminSettings',
+      params: { tab: 'reports' },
+    },
+  };
   // 3) Send each one a “report created” notification
   for (const admin of admins) {
     await createNotification({
@@ -663,13 +670,7 @@ export async function notifyReportCreated(reporterId: mongoose.Types.ObjectId, t
       data: {
         userId: reporterId.toString(),
         imageType: 'user',
-        navigation: {
-          name: 'AccountStack',
-          params: {
-            screen: 'AdminSettings',
-            params: { tab: 'reports' },
-          },
-        },
+        navigation,
       },
     });
   }
