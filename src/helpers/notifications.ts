@@ -644,9 +644,7 @@ export async function handleJoinRequestCancelled(
   }
 }
 
-/**
- * Notify a user that they've just leveled up.
- */
+//Notify a user that they've just leveled up.
 export async function notifyUserLevelUp(userId: mongoose.Types.ObjectId | string, previousRank: string, newRank: string): Promise<void> {
   const navigation = {
     name: 'Tabs',
