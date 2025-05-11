@@ -1,4 +1,6 @@
+import mongoose from 'mongoose';
 import { User } from '../models/User';
+import { notifyUserLevelUp } from './notifications';
 
 //////////////////////////////////////////////////need to add nptifaiction if the user "level up"
 // Rookie: (exp >= 0 && exp < 50)
@@ -14,36 +16,31 @@ export async function updateUserExp(userId: string, amount: number) {
     if (!user) return;
 
     const previousExp = user.exp ?? 0;
-    const newExp = previousExp + amount;
+    // clamp so it never drops below 0
+    const rawExp = previousExp + amount;
+    const newExp = rawExp < 0 ? 0 : rawExp;
 
     const previousRank = getRankByExp(previousExp);
     const newRank = getRankByExp(newExp);
-
 
     await User.findByIdAndUpdate(userId, {
       exp: newExp,
       rank: newRank,
     });
 
-    const didLevelUp = previousRank !== newRank; //if we level up
-    if (didLevelUp) {
-
-      //// can be use in exp or "newRank"
-      /////////////////////   add nothification 
+    if (previousRank !== newRank) {
+      console.log('User leveled up!');
+      await notifyUserLevelUp(new mongoose.Types.ObjectId(userId), previousRank, newRank);
     }
-
   } catch (error) {
     console.error('Failed to update EXP for user:', userId, error);
   }
 }
-
-
-
 export function getRankByExp(exp: number): string {
-  if (exp >= 0 && exp < 50) return "Rookie";
-  if (exp >= 50 && exp < 120) return "Adventurer";
-  if (exp >= 120 && exp < 220) return "Veteran";
-  if (exp >= 220 && exp < 340) return "Epic";
-  if (exp >= 340 && exp < 480) return "Elite";
-  return "Legend";
+  if (exp >= 0 && exp < 50) return 'Rookie';
+  if (exp >= 50 && exp < 120) return 'Adventurer';
+  if (exp >= 120 && exp < 220) return 'Veteran';
+  if (exp >= 220 && exp < 340) return 'Epic';
+  if (exp >= 340 && exp < 480) return 'Elite';
+  return 'Legend';
 }
