@@ -25,7 +25,7 @@ import searchRoutes from './routes/searchRoutes';
 import friendsRoutes from './routes/friendsRoutes';
 import adminRoutes from './routes/admin';
 import notificationsRoutes from './routes/notificationsRoutes';
-import reports from './routes/reports';
+import reports from './routes/reportRouts';
 
 import './firebaseAdmin';
 import tripRoutes from './routes/tripRoutes';

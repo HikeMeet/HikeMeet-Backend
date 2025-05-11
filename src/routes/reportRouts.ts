@@ -2,8 +2,8 @@ import express, { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Report } from '../models/Report';
 import { User } from '../models/User';
-import { Notification } from '../models/Notification';
 import { authenticate } from '../middlewares/authenticate';
+import { notifyReportCreated } from '../helpers/notifications';
 
 const router = express.Router();
 
@@ -35,25 +35,10 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
     });
 
     // Notify all admins via Notification collection
-    const admins = await User.find({ role: 'admin' });
 
-    for (const admin of admins) {
-      await Notification.create({
-        to: admin._id,
-        from: reporter._id,
-        type: 'report_submitted',
-        title: '🚨 New Report Submitted',
-        body: `A ${targetType} has been reported and requires your attention.`,
-        data: {
-          reportId: newReport._id,
-          targetId,
-          targetType,
-        },
-      });
-
-      // Increment their unread notification counter
-      await User.updateOne({ _id: admin._id }, { $inc: { unreadNotifications: 1 } });
-    }
+    /// notification here
+    await notifyReportCreated(reporter._id as mongoose.Types.ObjectId, targetType);
+    // Increment their unread notification counter
 
     return res.status(201).json({ message: 'Report submitted successfully', report: newReport });
   } catch (error) {

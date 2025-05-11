@@ -643,3 +643,34 @@ export async function handleJoinRequestCancelled(
     }
   }
 }
+
+export async function notifyReportCreated(reporterId: mongoose.Types.ObjectId, targetType: string): Promise<void> {
+  // 1) Load reporter’s username
+  const reporter = await User.findById(reporterId).select('username').lean();
+  if (!reporter) return;
+
+  // 2) Find all admins
+  const admins = await User.find({ role: 'admin' }).select('_id').lean();
+
+  // 3) Send each one a “report created” notification
+  for (const admin of admins) {
+    await createNotification({
+      to: admin._id as mongoose.Types.ObjectId,
+      from: reporterId,
+      type: 'report_created',
+      title: '🚨 New User Report',
+      body: ` reported a ${targetType}.`,
+      data: {
+        userId: reporterId.toString(),
+        imageType: 'user',
+        navigation: {
+          name: 'AccountStack',
+          params: {
+            screen: 'AdminSettings',
+            params: { tab: 'reports' },
+          },
+        },
+      },
+    });
+  }
+}
