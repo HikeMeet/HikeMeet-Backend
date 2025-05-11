@@ -659,7 +659,7 @@ export async function notifyReportCreated(reporterId: mongoose.Types.ObjectId, t
       from: reporterId,
       type: 'report_created',
       title: '🚨 New User Report',
-      body: ` reported a ${targetType}.`,
+      body: `reported a ${targetType}.`,
       data: {
         userId: reporterId.toString(),
         imageType: 'user',
