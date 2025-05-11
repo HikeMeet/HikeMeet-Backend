@@ -191,7 +191,6 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
   try {
     const { mongoId } = req.params;
     const firebase = req.query.firebase === 'true'; // Default is false if not provided
-    console.log(mongoId, ' xxxx ', firebase);
     let user;
 
     // Populate friend user data with only the selected fields
@@ -268,7 +267,6 @@ router.get('/:mongoId', async (req: Request, res: Response) => {
     } else {
       userObj = mapFriends(userObj);
     }
-    console.log('userObj', userObj);
     res.status(200).json(userObj);
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -304,7 +302,6 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
   try {
     console.log('Delete user');
     const userId = req.params.id;
-    console.log('User ID:', userId);
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: 'Invalid user id provided' });
