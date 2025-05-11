@@ -48,6 +48,7 @@ export interface IUser extends Document {
   updated_on: Date;
   mutedGroups: string[]; // list of Group IDs the user has muted
   mutedNotificationTypes: string[];
+  muted_chats: string[];
   favorite_trips: mongoose.Schema.Types.ObjectId[];
 }
 
@@ -103,6 +104,7 @@ const userSchema = new Schema({
   updated_on: { type: Date, required: true, default: Date.now },
   mutedGroups: { type: [String], default: [] }, // list of Group IDs the user has muted
   mutedNotificationTypes: { type: [String], default: [] },
+  muted_chats: { type: [String], default: [] },
 });
 
 // Mongoose Middleware: Cleanup friend references after a user is deleted

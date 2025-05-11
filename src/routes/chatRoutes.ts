@@ -133,10 +133,6 @@ router.delete('/group/:groupId', authenticate, async (req: Request, res: Respons
   const meUid = req.user.uid;
   const groupId = req.params.groupId;
 
-  if (!mongoose.isValidObjectId(groupId)) {
-    return res.status(400).json({ error: 'Invalid groupId' });
-  }
-
   try {
     // pull out of your chatrooms_groups
     await User.updateOne({ firebase_id: meUid }, { $pull: { chatrooms_groups: groupId } });
@@ -149,6 +145,72 @@ router.delete('/group/:groupId', authenticate, async (req: Request, res: Respons
   } catch (err) {
     console.error('Error removing group chatroom:', err);
     return res.status(500).json({ error: 'Could not remove group chatroom' });
+  }
+});
+
+// POST /api/chat/mute/:roomId
+router.post('/mute/:roomId', authenticate, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(404).json({ error: 'Missing user data' });
+  const meUid = req.user.uid;
+  const roomId = req.params.roomId;
+
+  try {
+    await User.updateOne({ firebase_id: meUid }, { $addToSet: { muted_chats: roomId } });
+    return res.json({ message: 'Chat muted successfully' });
+  } catch (err) {
+    console.error('Error muting chat:', err);
+    return res.status(500).json({ error: 'Could not mute chat' });
+  }
+});
+
+// DELETE /api/chat/mute/:roomId
+router.delete('/mute/:roomId', authenticate, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(404).json({ error: 'Missing user data' });
+  const meUid = req.user.uid;
+  const roomId = req.params.roomId;
+
+  try {
+    await User.updateOne({ firebase_id: meUid }, { $pull: { muted_chats: roomId } });
+    return res.json({ message: 'Chat unmuted successfully' });
+  } catch (err) {
+    console.error('Error unmuting chat:', err);
+    return res.status(500).json({ error: 'Could not unmute chat' });
+  }
+});
+
+router.get('/push-tokens', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { ids, roomId } = req.query;
+    if (!ids || typeof roomId !== 'string') {
+      return res.status(400).json({ error: 'Missing `ids` or `roomId`' });
+    }
+
+    // Normalize idsParam to a string
+    const idsString = Array.isArray(ids) ? ids.join(',') : String(ids);
+    const userIds = idsString
+      .split(',')
+      .map((s) => s.trim())
+      .filter((id) => mongoose.isValidObjectId(id));
+
+    if (userIds.length === 0) {
+      return res.status(400).json({ error: 'No valid user IDs provided' });
+    }
+
+    // Fetch each user’s pushTokens and muted_chats
+    const users = await User.find({ _id: { $in: userIds } }, { pushTokens: 1, muted_chats: 1 }).lean();
+
+    // Flatten and dedupe tokens, skipping users who muted this room
+    const tokensSet = new Set<string>();
+    for (const user of users) {
+      if (Array.isArray(user.pushTokens) && !Array.isArray(user.muted_chats) ? true : !user.muted_chats.includes(roomId)) {
+        user.pushTokens.forEach((t) => tokensSet.add(t));
+      }
+    }
+
+    return res.json({ tokens: Array.from(tokensSet) });
+  } catch (err) {
+    console.error('Error in GET /push-tokens:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
