@@ -37,17 +37,116 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-//GET /api/report/all     get all report (for admin)
-router.get('/all', authenticate, async (req: Request, res: Response) => {
+// GET /api/report/all
+router.get('/all', authenticate, async (_req: Request, res: Response) => {
   try {
-    const currentUser = await User.findOne({ firebase_id: req.user?.uid });
-    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+    const reports = await Report.aggregate([
+      { $sort: { createdAt: -1 } },
 
-    const reports = await Report.find().populate('reporter', 'username profile_picture').sort({ createdAt: -1 });
+      // the reporter
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'reporter',
+          foreignField: '_id',
+          pipeline: [{ $project: { username: 1, profile_picture: 1 } }],
+          as: 'reporter',
+        },
+      },
+      { $unwind: '$reporter' },
 
-    return res.status(200).json({ reports });
-  } catch (error) {
-    console.error('❌ Error fetching reports:', error);
+      // user
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'targetId',
+          foreignField: '_id',
+          pipeline: [{ $project: { username: 1 } }],
+          as: 'targetUser',
+        },
+      },
+
+      //post
+      {
+        $lookup: {
+          from: 'posts',
+          localField: 'targetId',
+          foreignField: '_id',
+          pipeline: [
+            {
+              $lookup: {
+                // owner post
+                from: 'users',
+                localField: 'author',
+                foreignField: '_id',
+                pipeline: [{ $project: { username: 1 } }],
+                as: 'owner',
+              },
+            },
+            { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
+            { $project: { title: 1, ownerName: '$owner.username' } },
+          ],
+          as: 'targetPost',
+        },
+      },
+
+      //trip
+      {
+        $lookup: {
+          from: 'trips',
+          localField: 'targetId',
+          foreignField: '_id',
+          pipeline: [{ $project: { name: 1 } }],
+          as: 'targetTrip',
+        },
+      },
+
+      // לבחור targetName ו‑targetOwner
+      {
+        $addFields: {
+          targetName: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: ['$targetType', 'user'] },
+                  then: { $arrayElemAt: ['$targetUser.username', 0] },
+                },
+                {
+                  case: { $eq: ['$targetType', 'post'] },
+                  then: { $arrayElemAt: ['$targetPost.title', 0] },
+                },
+                {
+                  case: { $eq: ['$targetType', 'trip'] },
+                  then: { $arrayElemAt: ['$targetTrip.name', 0] },
+                },
+              ],
+              default: '',
+            },
+          },
+          targetOwner: {
+            $cond: [{ $eq: ['$targetType', 'post'] }, { $arrayElemAt: ['$targetPost.ownerName', 0] }, null],
+          },
+        },
+      },
+
+      // send only what we need
+      {
+        $project: {
+          reporter: 1,
+          targetId: 1,
+          targetType: 1,
+          targetName: 1,
+          targetOwner: 1,
+          reason: 1,
+          status: 1,
+          createdAt: 1,
+        },
+      },
+    ]).exec();
+
+    return res.json({ reports });
+  } catch (err) {
+    console.error('❌ Error fetching reports:', err);
     return res.status(500).json({ error: 'Failed to fetch reports' });
   }
 });
