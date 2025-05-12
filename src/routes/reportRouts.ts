@@ -7,24 +7,18 @@ import { notifyReportCreated } from '../helpers/notifications';
 
 const router = express.Router();
 
-// POST /api/report - Submit a new report
+//POST /api/report     the user send report
 router.post('/', authenticate, async (req: Request, res: Response) => {
   try {
     const firebaseUid = req.user?.uid;
     const { targetId, targetType, reason } = req.body;
 
-    if (!firebaseUid) {
-      return res.status(401).json({ error: 'Unauthorized - no UID' });
-    }
+    if (!firebaseUid) return res.status(401).json({ error: 'Unauthorized - no UID' });
 
     const reporter = await User.findOne({ firebase_id: firebaseUid });
-    if (!reporter) {
-      return res.status(404).json({ error: 'Reporter not found' });
-    }
+    if (!reporter) return res.status(404).json({ error: 'Reporter not found' });
 
-    if (!targetId || !targetType || !reason) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
+    if (!targetId || !targetType || !reason) return res.status(400).json({ error: 'Missing required fields' });
 
     const newReport = await Report.create({
       reporter: reporter._id,
@@ -34,11 +28,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
       status: 'pending',
     });
 
-    // Notify all admins via Notification collection
-
-    /// notification here
     await notifyReportCreated(reporter._id as mongoose.Types.ObjectId, targetType);
-    // Increment their unread notification counter
 
     return res.status(201).json({ message: 'Report submitted successfully', report: newReport });
   } catch (error) {
@@ -47,52 +37,84 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/report - Admins fetch all reports
+//GET /api/report/all     get all report (for admin)
 router.get('/all', authenticate, async (req: Request, res: Response) => {
   try {
-    const firebaseUid = req.user?.uid;
-
-    const currentUser = await User.findOne({ firebase_id: firebaseUid });
-
-    if (!currentUser || currentUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
+    const currentUser = await User.findOne({ firebase_id: req.user?.uid });
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
 
     const reports = await Report.find().populate('reporter', 'username profile_picture').sort({ createdAt: -1 });
 
-    res.status(200).json({ reports });
+    return res.status(200).json({ reports });
   } catch (error) {
     console.error('❌ Error fetching reports:', error);
-    res.status(500).json({ error: 'Failed to fetch reports' });
+    return res.status(500).json({ error: 'Failed to fetch reports' });
   }
 });
 
-// PATCH /api/report/:id - Admin updates report status
+//PATCH /api/report/resolve-all – Admin:
+router.patch('/resolve-all', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = await User.findOne({ firebase_id: req.user?.uid });
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+
+    await Report.updateMany({}, { status: 'resolved' });
+    return res.status(200).json({ message: 'All reports marked as resolved' });
+  } catch (err) {
+    console.error('Error resolving all:', err);
+    return res.status(500).json({ error: 'Bulk resolve failed' });
+  }
+});
+
+//DELETE /api/report/resolved  – Admin: delete all resolved
+router.delete('/resolved', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = await User.findOne({ firebase_id: req.user?.uid });
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+
+    await Report.deleteMany({ status: 'resolved' });
+    return res.status(200).json({ message: 'Resolved reports removed' });
+  } catch (err) {
+    console.error('Error deleting resolved:', err);
+    return res.status(500).json({ error: 'Bulk delete failed' });
+  }
+});
+
+//PATCH /api/report/:id        – Admin: update status of resolved
 router.patch('/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const firebaseUid = req.user?.uid;
-    const currentUser = await User.findOne({ firebase_id: firebaseUid });
-    if (!currentUser || currentUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
+    const currentUser = await User.findOne({ firebase_id: req.user?.uid });
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
 
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['pending', 'in_progress', 'resolved'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status value' });
-    }
+    if (!['pending', 'in_progress', 'resolved'].includes(status)) return res.status(400).json({ error: 'Invalid status value' });
 
-    const updatedReport = await Report.findByIdAndUpdate(id, { status }, { new: true });
+    const updated = await Report.findByIdAndUpdate(id, { status }, { new: true });
+    if (!updated) return res.status(404).json({ error: 'Report not found' });
 
-    if (!updatedReport) {
-      return res.status(404).json({ error: 'Report not found' });
-    }
+    return res.status(200).json({ message: 'Report status updated', report: updated });
+  } catch (err) {
+    console.error('Error updating report:', err);
+    return res.status(500).json({ error: 'Failed to update report' });
+  }
+});
 
-    res.status(200).json({ message: 'Report status updated', report: updatedReport });
-  } catch (error) {
-    console.error('Error updating report:', error);
-    res.status(500).json({ error: 'Failed to update report' });
+//DELETE /api/report/:id       – Admin: deleting a single report
+router.delete('/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    const currentUser = await User.findOne({ firebase_id: req.user?.uid });
+    if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+
+    const { id } = req.params;
+    const deleted = await Report.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ error: 'Report not found' });
+
+    return res.status(200).json({ message: 'Report deleted' });
+  } catch (err) {
+    console.error('Error deleting report:', err);
+    return res.status(500).json({ error: 'Failed to delete report' });
   }
 });
 
