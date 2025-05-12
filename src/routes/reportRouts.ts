@@ -28,7 +28,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
       status: 'pending',
     });
 
-    await notifyReportCreated(reporter._id as mongoose.Types.ObjectId, targetType);
+    notifyReportCreated(reporter._id as mongoose.Types.ObjectId, targetType);
 
     return res.status(201).json({ message: 'Report submitted successfully', report: newReport });
   } catch (error) {
