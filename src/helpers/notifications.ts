@@ -64,7 +64,7 @@ export async function createNotification(opts: CreateNotificationOpts): Promise<
       const chunks = expo.chunkPushNotifications(messages);
       for (const chunk of chunks) {
         try {
-          const receipts = await expo.sendPushNotificationsAsync(chunk);
+          const receipts = expo.sendPushNotificationsAsync(chunk);
           console.log('Push receipts:', receipts);
         } catch (err) {
           console.error('Error sending Expo push:', err);
@@ -222,7 +222,7 @@ export async function notifyPostCommented(
   postId: string,
   commentId: string,
 ): Promise<void> {
-  // 1) Don’t notify yourself
+  // // 1) Don’t notify yourself
   if (postAuthorId.toString() === commentingUserId.toString()) {
     return;
   }
@@ -232,7 +232,7 @@ export async function notifyPostCommented(
   if (!commenter) return;
 
   // 3) Fire off notification
-  await createNotification({
+  createNotification({
     to: postAuthorId,
     from: commentingUserId,
     type: 'post_comment',

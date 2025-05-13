@@ -200,7 +200,7 @@ router.post('/share', async (req: Request, res: Response) => {
     // Notify original author
     const orig = await Post.findById(original_post).select('author');
     if (orig?.author && sharedPostDoc._id) {
-      await notifyPostShared(
+      notifyPostShared(
         new mongoose.Types.ObjectId(orig.author.toString()),
         new mongoose.Types.ObjectId(author),
         sharedPostDoc._id.toString(),
