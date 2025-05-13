@@ -269,7 +269,7 @@ export async function notifyCommentLiked(
   if (!liker) return;
 
   // 3) Send the notification
-  await createNotification({
+  createNotification({
     to: commentAuthorId,
     from: likingUserId,
     type: 'comment_like',

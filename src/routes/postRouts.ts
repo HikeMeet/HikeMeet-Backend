@@ -507,7 +507,7 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
 
     if (addedComment._id) {
       //Notify the post’s author
-      await notifyPostCommented(
+      notifyPostCommented(
         new mongoose.Types.ObjectId(post.author.toString()),
         new mongoose.Types.ObjectId(userId),
         postId,
