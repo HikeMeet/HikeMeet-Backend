@@ -200,7 +200,7 @@ router.post('/share', async (req: Request, res: Response) => {
     // Notify original author
     const orig = await Post.findById(original_post).select('author');
     if (orig?.author && sharedPostDoc._id) {
-      await notifyPostShared(
+      notifyPostShared(
         new mongoose.Types.ObjectId(orig.author.toString()),
         new mongoose.Types.ObjectId(author),
         sharedPostDoc._id.toString(),
@@ -507,7 +507,7 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
 
     if (addedComment._id) {
       //Notify the post’s author
-      await notifyPostCommented(
+      notifyPostCommented(
         new mongoose.Types.ObjectId(post.author.toString()),
         new mongoose.Types.ObjectId(userId),
         postId,
@@ -642,7 +642,7 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
     await post.save();
 
     // Notify the comment’s author
-    await notifyCommentLiked(comment.user, userId, postId, commentId);
+    notifyCommentLiked(comment.user, userId, postId, commentId);
 
     const populatedComment = await Post.findById(postId)
       .select({ comments: { $elemMatch: { _id: commentId } } })
