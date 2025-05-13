@@ -450,12 +450,10 @@ router.post('/:groupId/remove-member/:userId', async (req: Request, res: Respons
   }
 });
 
-/**
- * POST /:groupId/join - Join a group.
- * For public groups, the user is immediately added as a member.
- * For private groups, a join request is added to the pending list.
- * Expected to receive { "userId": "..." } in the body.
- */
+// POST /:groupId/join - Join a group.
+// For public groups, the user is immediately added as a member.
+// For private groups, a join request is added to the pending list.
+// Expected to receive { "userId": "..." } in the body.
 router.post('/:groupId/join/:userId', async (req: Request, res: Response) => {
   try {
     const { groupId, userId } = req.params;
@@ -638,14 +636,11 @@ router.post('/:groupId/cancel-join/:userId', async (req: Request, res: Response)
   }
 });
 
-/**
- * GET /list - Get all groups.
- * Query options:
- *   - privacy: "public" or "private"
- *   - status: "planned", "active", or "completed"
- * Example: GET /list?privacy=public&status=active
- */
-
+// GET /list - Get all groups.
+// Query options:
+//   - privacy: "public" or "private"
+//   - status: "planned", "active", or "completed"
+// Example: GET /list?privacy=public&status=active
 router.get('/user/:userId', async (req, res) => {
   const { userId } = req.params;
 
