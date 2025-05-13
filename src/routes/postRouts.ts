@@ -642,7 +642,7 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
     await post.save();
 
     // Notify the comment’s author
-    await notifyCommentLiked(comment.user, userId, postId, commentId);
+    notifyCommentLiked(comment.user, userId, postId, commentId);
 
     const populatedComment = await Post.findById(postId)
       .select({ comments: { $elemMatch: { _id: commentId } } })
