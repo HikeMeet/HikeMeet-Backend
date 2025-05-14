@@ -85,13 +85,13 @@ router.get('/all', authenticate, async (_req: Request, res: Response) => {
             },
             { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
 
-            /*  preview: first ~40 chars of content  |  fallback text   */
+            /*  preview: first ~50 chars of content  |  fallback text   */
             {
               $project: {
                 preview: {
                   $cond: [
                     { $gt: [{ $strLenCP: '$content' }, 0] },
-                    { $substrCP: ['$content', 0, 40] }, // first 40 chars
+                    { $substrCP: ['$content', 0, 50] }, // first 50 chars
                     'Post without text',
                   ],
                 },
