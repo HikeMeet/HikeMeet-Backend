@@ -675,3 +675,19 @@ export async function notifyReportCreated(reporterId: mongoose.Types.ObjectId, t
     });
   }
 }
+//Notify a user that they've just leveled up.
+export async function notifyUserLevelUp(userId: mongoose.Types.ObjectId | string, previousRank: string, newRank: string): Promise<void> {
+  const navigation = {
+    name: 'Tabs',
+    params: {
+      screen: 'Profile',
+    },
+  };
+  await createNotification({
+    to: typeof userId === 'string' ? new mongoose.Types.ObjectId(userId) : userId,
+    type: 'Rank_up',
+    title: '🎉 Rank Up!',
+    body: `You’ve advanced from '${previousRank}' to '${newRank}'!`,
+    data: { navigation, imageType: 'user', userId },
+  });
+}
