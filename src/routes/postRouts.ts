@@ -365,10 +365,35 @@ router.delete('/:id/delete', async (req: Request, res: Response) => {
   }
 });
 
+// routes/post.routes.ts
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    /* 1. Identify viewer & gather blocking information               */
+    const viewerIdRaw = req.header('x-current-user');
+    const viewerId = String(viewerIdRaw || '');
+
+    let blockedUserIds: string[] = [];
+
+    if (viewerId) {
+      const currentUser = await User.findById(viewerId);
+      if (currentUser) {
+        // users I blocked
+        const blockedByMe = (currentUser.friends || []).filter((f) => f.status === 'blocked').map((f) => f.id.toString());
+
+        // users who blocked me
+        const blockedMeDocs = await User.find({
+          friends: {
+            $elemMatch: { id: new mongoose.Types.ObjectId(viewerId), status: 'blocked' },
+          },
+        }).select('_id');
+
+        blockedUserIds = [...new Set([...blockedByMe, ...blockedMeDocs.map((d) => String(d._id))])];
+      }
+    }
+
+    /* 2. Fetch the post + relations                                   */
     const post = await Post.findById(id)
       .populate({ path: 'author', select: 'username profile_picture' })
       .populate({
@@ -376,20 +401,56 @@ router.get('/:id', async (req: Request, res: Response) => {
         select: 'content images author created_at',
         populate: { path: 'author', select: 'username profile_picture' },
       })
-      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
-      .populate({ path: 'comments', populate: { path: 'user', select: 'username profile_picture last_name first_name' } })
-      .populate({ path: 'comments', populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' } })
+      .populate({
+        path: 'likes',
+        select: 'username profile_picture first_name last_name',
+      })
+      .populate({
+        path: 'comments',
+        populate: {
+          path: 'user',
+          select: 'username profile_picture first_name last_name',
+        },
+      })
+      .populate({
+        path: 'comments',
+        populate: {
+          path: 'liked_by',
+          select: 'username profile_picture first_name last_name',
+        },
+      })
       .populate('attached_trips')
       .populate('attached_groups')
       .exec();
 
-    if (!post) {
-      return res.status(404).json({ error: 'Post not found' });
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    /* 3. Remove likes / comments from users that are blocked          */
+
+    // strip likes from blocked users
+    if (post.likes) {
+      post.likes = (post.likes as any).filter((u: any) => !blockedUserIds.includes(u._id.toString()));
+    }
+
+    // strip comments from blocked users
+    if (post.comments) {
+      post.comments = post.comments
+        .filter((c: any) => {
+          const commenterId = c.user?._id?.toString();
+          return commenterId && !blockedUserIds.includes(commenterId);
+        })
+        .map((c: any) => {
+          // also strip "liked_by" inside each comment
+          if (c.liked_by) {
+            c.liked_by = (c.liked_by as any).filter((u: any) => !blockedUserIds.includes(u._id.toString()));
+          }
+          return c;
+        });
     }
 
     res.status(200).json({ post });
   } catch (error) {
-    console.error('Error fetching post:', error);
+    console.error('❌ Error fetching post:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
