@@ -157,4 +157,45 @@ router.delete('/', authenticate, async (_req: Request, res: Response) => {
   }
 });
 
+// GET /api/notification/push-tokens?ids=id1,id2,id3
+router.get('/push-tokens', async (req: Request, res: Response) => {
+  try {
+    const idsParam = req.query.ids;
+    if (!idsParam) {
+      return res.status(400).json({ error: 'Missing `ids` query parameter' });
+    }
+
+    // Turn idsParam into a single string, whether it was string or string[]
+    const idsString = Array.isArray(idsParam) ? idsParam.join(',') : String(idsParam);
+
+    // Split and clean
+    const userIds = idsString
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+
+    if (userIds.length === 0) {
+      return res.status(400).json({ error: 'No valid user IDs provided' });
+    }
+
+    // Fetch only pushTokens
+    const users = await User.find({ _id: { $in: userIds } }, { pushTokens: 1 }).lean();
+
+    // Flatten and dedupe
+    const tokensSet = new Set<string>();
+    for (const u of users) {
+      if (Array.isArray(u.pushTokens)) {
+        for (const t of u.pushTokens) {
+          tokensSet.add(t);
+        }
+      }
+    }
+
+    return res.json({ tokens: Array.from(tokensSet) });
+  } catch (err) {
+    console.error('Error in /push-tokens:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

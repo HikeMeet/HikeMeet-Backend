@@ -103,18 +103,15 @@ router.get('/all', async (req: Request, res: Response) => {
   try {
     const { privacy, inGroup: groupId, userId, friendsOnly } = req.query;
 
-    // Identify the viewer
     const viewerIdRaw = req.header('x-current-user') || userId;
     const viewerId = String(viewerIdRaw);
 
-    /* 2)  Build base‑filter                                              */
     const filter: any = {};
     if (privacy === 'private') filter.privacy = 'private';
 
     let blockedUserIds: string[] = [];
     let acceptedFriendIds: string[] = [];
 
-    /* blocked and blocking */
     if (viewerId) {
       const currentUser = await User.findById(viewerId);
       if (!currentUser) return res.status(404).json({ error: 'Current user not found' });
@@ -122,42 +119,31 @@ router.get('/all', async (req: Request, res: Response) => {
       const blockedByMe = (currentUser.friends || []).filter((f) => f.status === 'blocked').map((f) => f.id.toString());
 
       const blockedMeDocs = await User.find({
-        friends: {
-          $elemMatch: { id: new mongoose.Types.ObjectId(viewerId), status: 'blocked' },
-        },
+        friends: { $elemMatch: { id: new mongoose.Types.ObjectId(viewerId), status: 'blocked' } },
       }).select('_id');
 
-      const blockedMe = blockedMeDocs.map((d) => String(d._id));
-      blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
+      blockedUserIds = [...new Set([...blockedByMe, ...blockedMeDocs.map((d) => String(d._id))])];
 
       acceptedFriendIds = (currentUser.friends || []).filter((f) => f.status === 'accepted').map((f) => f.id.toString());
 
-      // 1. Friends-only feed
+      /* feed‑level logic (כמו שהיה) */
       if (friendsOnly === 'true') {
-        const authorsForFriendsFeed = [...acceptedFriendIds, viewerId];
-
-        filter.author = {
-          $in: authorsForFriendsFeed,
-          $nin: blockedUserIds,
-        };
-        // 2. Group feed
+        filter.author = { $in: [...acceptedFriendIds, viewerId], $nin: blockedUserIds };
       } else if (groupId) {
         filter.in_group = groupId;
         filter.author = { $nin: blockedUserIds };
-        // 3. Viewing specific profile
       } else if (privacy !== 'public') {
         const isMe = String(currentUser._id) === String(userId);
         if (isMe) {
           filter.author = { $eq: userId, $nin: blockedUserIds };
         } else {
-          const targetUser = await User.findById(userId).select('privacySettings friends username');
+          const targetUser = await User.findById(userId).select('privacySettings friends');
           const visibility = targetUser?.privacySettings?.postVisibility ?? 'public';
-          const isFriend = (targetUser?.friends || []).some((f) => f.id.toString() === String(viewerId) && f.status === 'accepted');
+          const isFriend = (targetUser?.friends || []).some((f) => f.id.toString() === viewerId && f.status === 'accepted');
           if (visibility === 'friends' && !isFriend) return res.status(403).json({ message: 'This profile is private to friends only.' });
 
           filter.author = { $eq: userId, $nin: blockedUserIds };
         }
-        // 4. General/public feed
       } else {
         filter.author = { $nin: blockedUserIds };
       }
@@ -166,17 +152,18 @@ router.get('/all', async (req: Request, res: Response) => {
     if (!groupId) filter.in_group = { $exists: false };
 
     const posts = await Post.find(filter)
-      .populate({ path: 'author', select: 'username profile_picture friends' })
+      /* 📌 הוסף privacySettings כדי שנוכל לבדוק postVisibility של הכותב */
+      .populate({
+        path: 'author',
+        select: 'username profile_picture friends privacySettings',
+      })
       .populate({
         path: 'likes',
         select: 'username profile_picture first_name last_name',
       })
       .populate({
         path: 'comments',
-        populate: {
-          path: 'liked_by',
-          select: 'username profile_picture first_name last_name',
-        },
+        populate: { path: 'liked_by', select: 'username profile_picture first_name last_name' },
       })
       .populate({
         path: 'comments',
@@ -185,36 +172,42 @@ router.get('/all', async (req: Request, res: Response) => {
       .sort({ created_at: -1 })
       .exec();
 
-    /* privacy */
     const visiblePosts = posts
       .filter((post) => {
-        const authorId = (post.author as any)?._id?.toString() || '';
+        const author: any = post.author;
+        const authorId = author?._id?.toString() || '';
+        const visibility = author?.privacySettings?.postVisibility ?? 'public';
 
-        // in groups
+        /* בקבוצה – רק חסומים יוצאים */
         if (groupId) return !blockedUserIds.includes(authorId);
 
-        // post public in home page
-        if (post.privacy === 'public') return true;
+        /* ------ פוסטים PUBLIC ------ */
+        if (post.privacy === 'public') {
+          // אם הכותב הגדיר postVisibility:'public' → תמיד נראה
+          if (visibility === 'public') return true;
 
-        // private post in home page
+          // visibility:'friends'  → רק חבר או עצמי
+          const isSelf = authorId === viewerId;
+          const isFriend = acceptedFriendIds.includes(authorId);
+          return isSelf || isFriend;
+        }
+
+        /* ------ פוסטים PRIVATE ------ */
         const isSelf = authorId === viewerId;
         const isFriend = acceptedFriendIds.includes(authorId);
         return isSelf || isFriend;
       })
       .map((post) => {
-        /*  comment in home page from blocked user */
+        /* סינון תגובות / לייקים מחסומים */
         if (post.comments) {
           post.comments = post.comments.filter((c: any) => {
             const cid = c.user?._id?.toString();
             return cid && !blockedUserIds.includes(cid);
           });
         }
-
-        /*   likes from blocked users */
         if (post.likes) {
           post.likes = (post.likes as any).filter((u: any) => !blockedUserIds.includes(u._id.toString()));
         }
-
         return post;
       });
 
@@ -265,7 +258,7 @@ router.post('/share', async (req: Request, res: Response) => {
 
     const orig = await Post.findById(original_post).select('author');
     if (orig?.author && sharedPostDoc._id) {
-      await notifyPostShared(
+      notifyPostShared(
         new mongoose.Types.ObjectId(orig.author.toString()),
         new mongoose.Types.ObjectId(author),
         sharedPostDoc._id.toString(),
@@ -571,7 +564,7 @@ router.post('/:postId/comment', async (req: Request, res: Response) => {
 
     if (addedComment._id) {
       //Notify the post’s author
-      await notifyPostCommented(
+      notifyPostCommented(
         new mongoose.Types.ObjectId(post.author.toString()),
         new mongoose.Types.ObjectId(userId),
         postId,
@@ -706,7 +699,7 @@ router.post('/:postId/comment/:commentId/like', async (req: Request, res: Respon
     await post.save();
 
     // Notify the comment’s author
-    await notifyCommentLiked(comment.user, userId, postId, commentId);
+    notifyCommentLiked(comment.user, userId, postId, commentId);
 
     const populatedComment = await Post.findById(postId)
       .select({ comments: { $elemMatch: { _id: commentId } } })
