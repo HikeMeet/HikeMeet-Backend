@@ -73,9 +73,9 @@ router.get('/all', authenticate, async (_req: Request, res: Response) => {
           localField: 'targetId',
           foreignField: '_id',
           pipeline: [
+            /* owner (to display “Post owner”) */
             {
               $lookup: {
-                // owner post
                 from: 'users',
                 localField: 'author',
                 foreignField: '_id',
@@ -84,7 +84,20 @@ router.get('/all', authenticate, async (_req: Request, res: Response) => {
               },
             },
             { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
-            { $project: { title: 1, ownerName: '$owner.username' } },
+
+            /*  preview: first ~40 chars of content  |  fallback text   */
+            {
+              $project: {
+                preview: {
+                  $cond: [
+                    { $gt: [{ $strLenCP: '$content' }, 0] },
+                    { $substrCP: ['$content', 0, 40] }, // first 40 chars
+                    'Post without text',
+                  ],
+                },
+                ownerName: '$owner.username',
+              },
+            },
           ],
           as: 'targetPost',
         },
@@ -101,7 +114,7 @@ router.get('/all', authenticate, async (_req: Request, res: Response) => {
         },
       },
 
-      // לבחור targetName ו‑targetOwner
+      // choose targetName and targetOwner
       {
         $addFields: {
           targetName: {
@@ -113,7 +126,7 @@ router.get('/all', authenticate, async (_req: Request, res: Response) => {
                 },
                 {
                   case: { $eq: ['$targetType', 'post'] },
-                  then: { $arrayElemAt: ['$targetPost.title', 0] },
+                  then: { $arrayElemAt: ['$targetPost.preview', 0] },
                 },
                 {
                   case: { $eq: ['$targetType', 'trip'] },
