@@ -90,6 +90,9 @@ router.post('/insert', async (req: Request, res: Response) => {
       created_on: new Date(),
       updated_on: new Date(),
       pushTokens: pushTokens || [],
+      privacySettings: {
+        postVisibility: 'public',
+      },
     });
 
     // Save the user to the database
