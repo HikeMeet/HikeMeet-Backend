@@ -107,7 +107,12 @@ router.get('/all', async (req: Request, res: Response) => {
     const viewerId = String(viewerIdRaw);
 
     let filter: any = {};
-    if (privacy) filter.privacy = privacy;
+
+    // מסנן לפי privacy רק אם ביקשו במפורש "private"
+    // (או תוסיף כאן תמיכה בעוד ערכים אם תרצה)
+    if (privacy === 'private') {
+      filter.privacy = 'private';
+    }
 
     let blockedUserIds: string[] = [];
     let acceptedFriendIds: string[] = [];
