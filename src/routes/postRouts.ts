@@ -110,6 +110,7 @@ router.get('/all', async (req: Request, res: Response) => {
     if (privacy) filter.privacy = privacy;
 
     let blockedUserIds: string[] = [];
+    let acceptedFriendIds: string[] = [];
 
     if (viewerId) {
       const currentUser = await User.findById(viewerId);
@@ -129,10 +130,10 @@ router.get('/all', async (req: Request, res: Response) => {
       const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
       blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
 
+      acceptedFriendIds = (currentUser.friends || []).filter((f) => f.status === 'accepted').map((f) => f.id.toString());
+
       // 1. Friends-only feed
       if (friendsOnly === 'true') {
-        const acceptedFriendIds = (currentUser.friends || []).filter((f) => f.status === 'accepted').map((f) => f.id.toString());
-
         filter.author = { $in: acceptedFriendIds, $nin: blockedUserIds };
 
         // 2. Group feed
@@ -176,9 +177,38 @@ router.get('/all', async (req: Request, res: Response) => {
       filter.in_group = { $exists: false };
     }
 
-    const posts = await Post.find(filter).populate({ path: 'author', select: 'username profile_picture' }).sort({ created_at: -1 }).exec();
+    // שליפת כל הפוסטים שתואמים את המסנן הבסיסי (לפי מחברים, קבוצות וכו')
+    const posts = await Post.find(filter).populate({ path: 'author', select: 'username profile_picture friends' }).sort({ created_at: -1 }).exec();
 
-    res.status(200).json({ posts });
+    // ----------------- מחליף רק את הקטע הזה -----------------
+    const visiblePosts = posts
+      .filter((post) => {
+        const postAuthorId = (post.author as any)?._id?.toString() || '';
+
+        if (groupId) {
+          return !blockedUserIds.includes(postAuthorId);
+        }
+
+        if (post.privacy === 'public') return true;
+
+        const isSelf = postAuthorId === viewerId;
+        const isFriend = acceptedFriendIds.includes(postAuthorId);
+
+        return isSelf || isFriend;
+      })
+
+      .map((post) => {
+        if (post.comments) {
+          post.comments = post.comments.filter((c: any) => {
+            const cUserId = c.user?._id?.toString();
+            return cUserId && !blockedUserIds.includes(cUserId);
+          });
+        }
+        return post;
+      });
+    // ---------------------------------------------------------
+
+    res.status(200).json({ posts: visiblePosts });
   } catch (error) {
     console.error('❌ Error fetching posts:', error);
     res.status(500).json({ error: 'Internal server error' });
