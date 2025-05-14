@@ -98,61 +98,79 @@ router.get('/saved/:userId', async (req: Request, res: Response) => {
   }
 });
 
-// routes/post.routes.ts
 router.get('/all', async (req: Request, res: Response) => {
   try {
     const { privacy, inGroup: groupId, userId, friendsOnly } = req.query;
 
+    // 1. Identify the viewer (current user)
     const viewerIdRaw = req.header('x-current-user') || userId;
     const viewerId = String(viewerIdRaw);
 
+    /* 2. Build the initial Mongo filter                                  */
+    /*    – Only limit by privacy if the request explicitly asks          */
+    /*      for private posts.                                            */
     const filter: any = {};
     if (privacy === 'private') filter.privacy = 'private';
 
     let blockedUserIds: string[] = [];
     let acceptedFriendIds: string[] = [];
 
+    // 3. blocking / friendship information
     if (viewerId) {
       const currentUser = await User.findById(viewerId);
       if (!currentUser) return res.status(404).json({ error: 'Current user not found' });
 
+      // Users I blocked
       const blockedByMe = (currentUser.friends || []).filter((f) => f.status === 'blocked').map((f) => f.id.toString());
 
+      // Users who blocked me
       const blockedMeDocs = await User.find({
         friends: { $elemMatch: { id: new mongoose.Types.ObjectId(viewerId), status: 'blocked' } },
       }).select('_id');
 
       blockedUserIds = [...new Set([...blockedByMe, ...blockedMeDocs.map((d) => String(d._id))])];
 
+      // Friends I have accepted
       acceptedFriendIds = (currentUser.friends || []).filter((f) => f.status === 'accepted').map((f) => f.id.toString());
 
-      /* feed‑level logic (כמו שהיה) */
+      // 4.1  Friends‑only feed (show friends + my own posts)
       if (friendsOnly === 'true') {
         filter.author = { $in: [...acceptedFriendIds, viewerId], $nin: blockedUserIds };
+
+        // 4.2  Group feed
       } else if (groupId) {
         filter.in_group = groupId;
         filter.author = { $nin: blockedUserIds };
+
+        // 4.3  Viewing a specific profile
       } else if (privacy !== 'public') {
         const isMe = String(currentUser._id) === String(userId);
+
         if (isMe) {
           filter.author = { $eq: userId, $nin: blockedUserIds };
         } else {
           const targetUser = await User.findById(userId).select('privacySettings friends');
+
           const visibility = targetUser?.privacySettings?.postVisibility ?? 'public';
+
           const isFriend = (targetUser?.friends || []).some((f) => f.id.toString() === viewerId && f.status === 'accepted');
+
           if (visibility === 'friends' && !isFriend) return res.status(403).json({ message: 'This profile is private to friends only.' });
 
           filter.author = { $eq: userId, $nin: blockedUserIds };
         }
+
+        // 4.4  General / home feed
       } else {
         filter.author = { $nin: blockedUserIds };
       }
     }
 
+    // Exclude group posts unless a groupId is provided
     if (!groupId) filter.in_group = { $exists: false };
 
+    // 5. Query posts and populate required relations
     const posts = await Post.find(filter)
-      /* 📌 הוסף privacySettings כדי שנוכל לבדוק postVisibility של הכותב */
       .populate({
         path: 'author',
         select: 'username profile_picture friends privacySettings',
@@ -172,42 +190,46 @@ router.get('/all', async (req: Request, res: Response) => {
       .sort({ created_at: -1 })
       .exec();
 
+    // 6. Post‑level visibility checks
     const visiblePosts = posts
       .filter((post) => {
         const author: any = post.author;
         const authorId = author?._id?.toString() || '';
         const visibility = author?.privacySettings?.postVisibility ?? 'public';
 
-        /* בקבוצה – רק חסומים יוצאים */
+        /* Group feed: show everything except blocked authors */
         if (groupId) return !blockedUserIds.includes(authorId);
 
-        /* ------ פוסטים PUBLIC ------ */
+        /* Public post on home feed */
         if (post.privacy === 'public') {
-          // אם הכותב הגדיר postVisibility:'public' → תמיד נראה
+          // Author allows public – always show
           if (visibility === 'public') return true;
 
-          // visibility:'friends'  → רק חבר או עצמי
+          // Author allows friends only – show if friend or self
           const isSelf = authorId === viewerId;
           const isFriend = acceptedFriendIds.includes(authorId);
           return isSelf || isFriend;
         }
 
-        /* ------ פוסטים PRIVATE ------ */
+        /* Private post on home/feed */
         const isSelf = authorId === viewerId;
         const isFriend = acceptedFriendIds.includes(authorId);
         return isSelf || isFriend;
       })
       .map((post) => {
-        /* סינון תגובות / לייקים מחסומים */
+        /* Remove comments from blocked users */
         if (post.comments) {
           post.comments = post.comments.filter((c: any) => {
             const cid = c.user?._id?.toString();
             return cid && !blockedUserIds.includes(cid);
           });
         }
+
+        /* Remove likes from blocked users */
         if (post.likes) {
           post.likes = (post.likes as any).filter((u: any) => !blockedUserIds.includes(u._id.toString()));
         }
+
         return post;
       });
 
