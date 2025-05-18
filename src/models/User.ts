@@ -51,6 +51,9 @@ export interface IUser extends Document {
   mutedNotificationTypes: string[];
   muted_chats: string[];
   favorite_trips: mongoose.Schema.Types.ObjectId[];
+  privacySettings?: {
+    postVisibility?: 'public' | 'private';
+  };
 }
 
 type IUserModel = Model<IUser>;
@@ -106,6 +109,13 @@ const userSchema = new Schema({
   updated_on: { type: Date, required: true, default: Date.now },
   mutedGroups: { type: [String], default: [] }, // list of Group IDs the user has muted
   mutedNotificationTypes: { type: [String], default: [] },
+  privacySettings: {
+    postVisibility: {
+      type: String,
+      enum: ['public', 'private'],
+      default: 'public',
+    },
+  },
   muted_chats: { type: [String], default: [] },
 });
 
