@@ -155,7 +155,7 @@ router.get('/all', async (req: Request, res: Response) => {
 
           const isFriend = (targetUser?.friends || []).some((f) => f.id.toString() === viewerId && f.status === 'accepted');
 
-          if (visibility === 'friends' && !isFriend) return res.status(403).json({ message: 'This profile is private to friends only.' });
+          if (visibility === 'private' && !isFriend) return res.status(403).json({ message: 'This profile is private to friends only.' });
 
           filter.author = { $eq: userId, $nin: blockedUserIds };
         }

@@ -12,7 +12,7 @@ router.put('/update-privacy', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing userId or postVisibility' });
     }
 
-    if (!['public', 'friends'].includes(postVisibility)) {
+    if (!['public', 'private'].includes(postVisibility)) {
       return res.status(400).json({ error: 'Invalid postVisibility value' });
     }
 

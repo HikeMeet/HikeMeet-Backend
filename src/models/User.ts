@@ -52,7 +52,7 @@ export interface IUser extends Document {
   muted_chats: string[];
   favorite_trips: mongoose.Schema.Types.ObjectId[];
   privacySettings?: {
-    postVisibility?: 'public' | 'friends';
+    postVisibility?: 'public' | 'private';
   };
 }
 
@@ -112,7 +112,7 @@ const userSchema = new Schema({
   privacySettings: {
     postVisibility: {
       type: String,
-      enum: ['public', 'friends'],
+      enum: ['public', 'private'],
       default: 'public',
     },
   },
