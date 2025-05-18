@@ -101,101 +101,141 @@ router.get('/saved/:userId', async (req: Request, res: Response) => {
 router.get('/all', async (req: Request, res: Response) => {
   try {
     const { privacy, inGroup: groupId, userId, friendsOnly } = req.query;
-    let filter: any = {};
 
-    if (privacy) {
-      filter.privacy = privacy;
-    }
+    // 1. Identify the viewer (current user)
+    const viewerIdRaw = req.header('x-current-user') || userId;
+    const viewerId = String(viewerIdRaw);
+
+    /* 2. Build the initial Mongo filter                                  */
+    /*    – Only limit by privacy if the request explicitly asks          */
+    /*      for private posts.                                            */
+    const filter: any = {};
+    if (privacy === 'private') filter.privacy = 'private';
 
     let blockedUserIds: string[] = [];
+    let acceptedFriendIds: string[] = [];
 
-    if (userId) {
-      const currentUser = await User.findById(userId);
-      if (!currentUser) {
-        return res.status(404).json({ error: 'Current user not found' });
-      }
+    // 3. blocking / friendship information
+    if (viewerId) {
+      const currentUser = await User.findById(viewerId);
+      if (!currentUser) return res.status(404).json({ error: 'Current user not found' });
 
-      ///////// A list of users who are blocked by me or who have blocked me.
+      // Users I blocked
+      const blockedByMe = (currentUser.friends || []).filter((f) => f.status === 'blocked').map((f) => f.id.toString());
 
-      const blockedByMe = (currentUser.friends || []).filter((friend) => friend.status === 'blocked').map((friend) => friend.id.toString());
-
+      // Users who blocked me
       const blockedMeDocs = await User.find({
-        friends: {
-          $elemMatch: {
-            id: new mongoose.Types.ObjectId(userId as string),
-            status: 'blocked',
-          },
-        },
+        friends: { $elemMatch: { id: new mongoose.Types.ObjectId(viewerId), status: 'blocked' } },
       }).select('_id');
 
-      const blockedMe = blockedMeDocs.map((doc) => String(doc._id));
-      blockedUserIds = [...new Set([...blockedByMe, ...blockedMe])];
+      blockedUserIds = [...new Set([...blockedByMe, ...blockedMeDocs.map((d) => String(d._id))])];
 
-      // Case 1: Friends only feed
+      // Friends I have accepted
+      acceptedFriendIds = (currentUser.friends || []).filter((f) => f.status === 'accepted').map((f) => f.id.toString());
+
+      // 4.1  Friends‑only feed (show friends + my own posts)
       if (friendsOnly === 'true') {
-        const acceptedFriendIds = (currentUser.friends || [])
-          .filter((friend: any) => friend.status === 'accepted')
-          .map((friend: any) => friend.id.toString());
+        filter.author = { $in: [...acceptedFriendIds, viewerId], $nin: blockedUserIds };
 
-        filter.author = {
-          $in: acceptedFriendIds,
-          $nin: blockedUserIds,
-        };
+        // 4.2  Group feed
+      } else if (groupId) {
+        filter.in_group = groupId;
+        filter.author = { $nin: blockedUserIds };
 
-        // Case 2: Profile view
-      } else if (!groupId && privacy !== 'public') {
-        filter.author = {
-          $eq: userId,
-          $nin: blockedUserIds,
-        };
+        // 4.3  Viewing a specific profile
+      } else if (privacy !== 'public') {
+        const isMe = String(currentUser._id) === String(userId);
 
-        // Case 3: Public feed (home page)
+        if (isMe) {
+          filter.author = { $eq: userId, $nin: blockedUserIds };
+        } else {
+          const targetUser = await User.findById(userId).select('privacySettings friends');
+
+          const visibility = targetUser?.privacySettings?.postVisibility ?? 'public';
+
+          const isFriend = (targetUser?.friends || []).some((f) => f.id.toString() === viewerId && f.status === 'accepted');
+
+          if (visibility === 'friends' && !isFriend) return res.status(403).json({ message: 'This profile is private to friends only.' });
+
+          filter.author = { $eq: userId, $nin: blockedUserIds };
+        }
+
+        // 4.4  General / home feed
       } else {
         filter.author = { $nin: blockedUserIds };
       }
     }
 
-    // Case 4: Group posts
-    if (groupId) {
-      filter.in_group = groupId;
-    } else {
-      filter.in_group = { $exists: false };
-    }
+    // Exclude group posts unless a groupId is provided
+    if (!groupId) filter.in_group = { $exists: false };
 
+    // 5. Query posts and populate required relations
     const posts = await Post.find(filter)
-      .populate({ path: 'author', select: 'username profile_picture' })
       .populate({
-        path: 'original_post',
-        select: 'content images author created_at',
-        populate: { path: 'author', select: 'username profile_picture' },
+        path: 'author',
+        select: 'username profile_picture friends privacySettings',
       })
-      .populate('attached_trips')
-      .populate('attached_groups')
-      .populate({ path: 'likes', select: 'username profile_picture last_name first_name' })
       .populate({
-        path: 'comments',
-        populate: { path: 'user', select: 'username profile_picture last_name first_name' },
+        path: 'likes',
+        select: 'username profile_picture first_name last_name',
       })
       .populate({
         path: 'comments',
-        populate: { path: 'liked_by', select: 'username profile_picture last_name first_name' },
+        populate: { path: 'liked_by', select: 'username profile_picture first_name last_name' },
+      })
+      .populate({
+        path: 'comments',
+        populate: { path: 'user', select: 'username profile_picture first_name last_name' },
       })
       .sort({ created_at: -1 })
       .exec();
 
-    // Filter out comments from blocked users
-    const filteredPosts = posts.map((post) => {
-      if (!post.comments) return post;
-      post.comments = post.comments.filter((comment: any) => {
-        const commentUserId = comment.user?._id?.toString();
-        return commentUserId && !blockedUserIds.includes(commentUserId);
-      });
-      return post;
-    });
+    // 6. Post‑level visibility checks
+    const visiblePosts = posts
+      .filter((post) => {
+        const author: any = post.author;
+        const authorId = author?._id?.toString() || '';
+        const visibility = author?.privacySettings?.postVisibility ?? 'public';
 
-    res.status(200).json({ posts: filteredPosts });
+        /* Group feed: show everything except blocked authors */
+        if (groupId) return !blockedUserIds.includes(authorId);
+
+        /* Public post on home feed */
+        if (post.privacy === 'public') {
+          // Author allows public – always show
+          if (visibility === 'public') return true;
+
+          // Author allows friends only – show if friend or self
+          const isSelf = authorId === viewerId;
+          const isFriend = acceptedFriendIds.includes(authorId);
+          return isSelf || isFriend;
+        }
+
+        /* Private post on home/feed */
+        const isSelf = authorId === viewerId;
+        const isFriend = acceptedFriendIds.includes(authorId);
+        return isSelf || isFriend;
+      })
+      .map((post) => {
+        /* Remove comments from blocked users */
+        if (post.comments) {
+          post.comments = post.comments.filter((c: any) => {
+            const cid = c.user?._id?.toString();
+            return cid && !blockedUserIds.includes(cid);
+          });
+        }
+
+        /* Remove likes from blocked users */
+        if (post.likes) {
+          post.likes = (post.likes as any).filter((u: any) => !blockedUserIds.includes(u._id.toString()));
+        }
+
+        return post;
+      });
+
+    res.status(200).json({ posts: visiblePosts });
   } catch (error) {
-    console.error('Error fetching posts:', error);
+    console.error('❌ Error fetching posts:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
