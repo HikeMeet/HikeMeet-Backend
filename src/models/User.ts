@@ -25,6 +25,7 @@ export interface IUser extends Document {
   };
   bio?: string;
   exp?: number;
+  rank?: string;
   facebook_link?: string;
   instagram_link?: string;
   role: 'user' | 'admin';
@@ -39,6 +40,8 @@ export interface IUser extends Document {
     status: 'request_sent' | 'request_received' | 'accepted' | 'blocked';
     id: mongoose.Schema.Types.ObjectId;
   }[];
+  chatrooms_with: mongoose.Schema.Types.ObjectId[];
+  chatrooms_groups: mongoose.Schema.Types.ObjectId[];
   trip_history: ITripHistoryEntry[];
   firebase_id: string;
   pushTokens: string[];
@@ -46,7 +49,11 @@ export interface IUser extends Document {
   updated_on: Date;
   mutedGroups: string[]; // list of Group IDs the user has muted
   mutedNotificationTypes: string[];
+  muted_chats: string[];
   favorite_trips: mongoose.Schema.Types.ObjectId[];
+  privacySettings?: {
+    postVisibility?: 'public' | 'private';
+  };
 }
 
 type IUserModel = Model<IUser>;
@@ -65,6 +72,7 @@ const userSchema = new Schema({
   },
   bio: { type: String },
   exp: { type: Number },
+  rank: { type: String, default: 'Rookie' },
   facebook_link: { type: String },
   instagram_link: { type: String },
   role: { type: String, required: true, enum: ['user', 'admin'], default: 'user' },
@@ -90,6 +98,8 @@ const userSchema = new Schema({
       _id: false, //cancel _id automatic (its was problem)
     },
   ],
+  chatrooms_with: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
+  chatrooms_groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: [] }],
   favorite_trips: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: [] }],
   trip_history: [tripHistorySchema],
   firebase_id: { type: String },
@@ -99,6 +109,14 @@ const userSchema = new Schema({
   updated_on: { type: Date, required: true, default: Date.now },
   mutedGroups: { type: [String], default: [] }, // list of Group IDs the user has muted
   mutedNotificationTypes: { type: [String], default: [] },
+  privacySettings: {
+    postVisibility: {
+      type: String,
+      enum: ['public', 'private'],
+      default: 'public',
+    },
+  },
+  muted_chats: { type: [String], default: [] },
 });
 
 // Mongoose Middleware: Cleanup friend references after a user is deleted
@@ -109,6 +127,9 @@ userSchema.post('findOneAndDelete', async function (this: any, deletedDoc, next)
     try {
       // ✅ Remove user from others' friend lists
       await this.model.updateMany({ 'friends.id': deletedDoc._id }, { $pull: { friends: { id: deletedDoc._id } } });
+
+      // ✅ Remove user from all other users chatlist if im there
+      await this.model.updateMany({ chatrooms_with: deletedDoc._id }, { $pull: { chatrooms_with: deletedDoc._id } });
 
       // ✅ Remove user's profile image from Cloudinary
       const publicId = deletedDoc.profile_picture?.image_id;

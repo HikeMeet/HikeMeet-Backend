@@ -25,6 +25,8 @@ import searchRoutes from './routes/searchRoutes';
 import friendsRoutes from './routes/friendsRoutes';
 import adminRoutes from './routes/admin';
 import notificationsRoutes from './routes/notificationsRoutes';
+import privacy from './routes/privacy';
+import reports from './routes/reportRouts';
 
 import './firebaseAdmin';
 import tripRoutes from './routes/tripRoutes';
@@ -32,6 +34,7 @@ import groupRoutes from './routes/groupRoutes';
 import postRouts from './routes/postRouts';
 import cloudinaryRouts from './routes/cloudinaryRouts';
 import { v2 as cloudinary } from 'cloudinary';
+import chatRoutes from './routes/chatRoutes';
 
 const app: express.Application = express();
 const allowedOrigins = ['http://localhost:3000', 'http://10.100.102.172:3000', 'http://10.100.102.172:5000'];
@@ -77,6 +80,9 @@ mongoose
     app.use('/api/post', postRouts); //action on users (check status, add, remove, cancel request)
     app.use('/api/cloudinary', cloudinaryRouts); //action on users (check status, add, remove, cancel request)
     app.use('/api/notification', notificationsRoutes);
+    app.use('/api/report', reports);
+    app.use('/api/privacy', privacy);
+    app.use('/api/chat', chatRoutes);
 
     // catch 404 and forward to error handler
     app.use((_req, _res, next) => {
