@@ -81,6 +81,7 @@ mongoose
     app.use('/api/cloudinary', cloudinaryRouts); //action on users (check status, add, remove, cancel request)
     app.use('/api/notification', notificationsRoutes);
     app.use('/api/report', reports);
+    app.use('/api/privacy', privacy);
     app.use('/api/chat', chatRoutes);
 
     // catch 404 and forward to error handler
