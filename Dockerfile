@@ -1,16 +1,20 @@
 # Use safe Node base
-FROM node:22
+FROM node:20
 
-WORKDIR /app
+RUN apt-get update && \
+    apt-get install -y ca-certificates libnss3 dnsutils && \
+    rm -rf /var/lib/apt/lists/*
+WORKDIR /src/app
 
-# Install deps
-COPY package*.json ./
+
+COPY package*.json tsconfig.json ./
+
 RUN npm install
 
-# Copy source and build
 COPY . .
+
 RUN npm run build
 
-# Expose and run
 EXPOSE 3000
+
 CMD ["npm", "start"]
