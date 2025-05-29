@@ -1,19 +1,20 @@
 import createError from 'http-errors';
 import express from 'express';
-import path from 'path';
-import dotenv from 'dotenv';
+// import path from 'path';
+// import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import http from 'http';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import './utils/cronJobs';
 console.log('✅ Backend booting...');
+// if (process.env.NODE_ENV !== 'prod') {
+//   dotenv.config({ path: path.join(__dirname, `../.env`) });
+// }
+// const env = process.env.NODE_ENV || 'local';
 
-dotenv.config({ path: path.join(__dirname, `../.env`) });
-const env = process.env.NODE_ENV || 'local';
-
-dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
-
+// dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
+console.log('Port', process.env.PORT);
 console.log(`Running in '${process.env.NODE_ENV}' enviroment`);
 
 import { handleError } from './helpers/error';
@@ -97,6 +98,7 @@ mongoose
 
     // Server Setup
     const port = parseInt(process.env.PORT || '3000', 10);
+    console.log('port', port);
     app.set('port', port);
 
     const server = http.createServer(app);
@@ -126,7 +128,7 @@ mongoose
     }
 
     app.listen(port, '0.0.0.0', () => {
-      console.log('Server is running on http://0.0.0.0:3000');
+      console.log(`Server is running on http://0.0.0.0:${port}`);
     });
     server.on('error', onError);
     server.on('listening', onListening);
