@@ -9,7 +9,7 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - hikemeet.com 
+        - hikemeet.com
       secretName: hikemeet-tls
   rules:
     - host: hikemeet.com
