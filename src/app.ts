@@ -12,7 +12,6 @@ if (process.env.NODE_ENV !== 'prod') {
   dotenv.config({ path: path.join(__dirname, `../.env`) });
 }
 const env = process.env.NODE_ENV || 'local';
-
 dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
 console.log('Port', process.env.PORT);
 console.log(`Running in '${process.env.NODE_ENV}' enviroment`);
