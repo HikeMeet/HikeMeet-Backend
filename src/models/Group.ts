@@ -72,7 +72,7 @@ const GroupPendingSchema = new Schema<IGroupPending>(
 const groupSchema = new Schema<IGroup>(
   {
     name: { type: String, required: true },
-    trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
+    trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip' },
     max_members: { type: Number, required: true },
     privacy: { type: String, enum: ['public', 'private'], default: 'public' },
     difficulty: {
