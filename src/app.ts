@@ -13,7 +13,7 @@ console.log('✅ Backend booting...');
 // }
 // const env = process.env.NODE_ENV || 'local';
 // dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
-console.log('Port', process.env.PORT);
+console.log('Port: ', process.env.PORT);
 console.log(`Running in '${process.env.NODE_ENV}' enviroment`);
 
 import { handleError } from './helpers/error';
