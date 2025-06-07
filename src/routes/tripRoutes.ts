@@ -5,6 +5,22 @@ import { updateUserExp } from '../helpers/expHelper';
 import mongoose from 'mongoose';
 import { DEFAULT_TRIP_IMAGE_URL, DEFAULT_TRIP_IMAGE_ID, removeOldImage } from '../helpers/cloudinaryHelper';
 
+export async function deleteTripImages(trip: { main_image?: { image_id?: string }; images?: { image_id: string }[] }): Promise<void> {
+  // Delete main image if it's not the default
+  if (trip.main_image?.image_id && trip.main_image.image_id !== DEFAULT_TRIP_IMAGE_ID) {
+    await removeOldImage(trip.main_image.image_id, DEFAULT_TRIP_IMAGE_ID);
+  }
+
+  // Delete each image from the images[] array
+  if (trip.images?.length) {
+    for (const img of trip.images) {
+      if (img.image_id) {
+        await removeOldImage(img.image_id);
+      }
+    }
+  }
+}
+
 const router = express.Router();
 // POST /trips/create - Create a new trip
 router.post('/create', async (req: Request, res: Response) => {
@@ -219,7 +235,12 @@ router.post('/archive/:id', async (req: Request, res: Response) => {
       images: trip.images,
       tags: trip.tags,
       createdBy: trip.createdBy,
+      main_image: trip.main_image,
+      ratings: trip.ratings,
+      avg_rating: trip.avg_rating,
       archivedAt: new Date(),
+      createdAt: trip.createdAt,
+      updatedAt: trip.updatedAt,
     });
 
     // Save the archived trip with the session
@@ -264,7 +285,11 @@ router.post('/unarchive/:id', async (req: Request, res: Response) => {
       images: archivedTrip.images,
       tags: archivedTrip.tags,
       createdBy: archivedTrip.createdBy,
-      // Add any additional fields if needed
+      main_image: archivedTrip.main_image,
+      ratings: archivedTrip.ratings,
+      avg_rating: archivedTrip.avg_rating,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     // Save the trip to the active trips collection with the session
@@ -290,14 +315,7 @@ router.delete('/archive/clear', async (_req: Request, res: Response) => {
     const archivedTrips = await ArchivedTrip.find({});
 
     for (const trip of archivedTrips) {
-      const imageId = trip.main_image?.image_id;
-      if (imageId && imageId !== DEFAULT_TRIP_IMAGE_ID) {
-        await removeOldImage(imageId, DEFAULT_TRIP_IMAGE_ID);
-      }
-
-      for (const image of trip.images || []) {
-        await removeOldImage(image.image_id);
-      }
+      await deleteTripImages(trip);
     }
     await ArchivedTrip.deleteMany({});
     res.status(200).json({ message: 'All archived trips cleared' });
@@ -315,6 +333,7 @@ router.delete('/archive/:id', async (req: Request, res: Response) => {
     if (!trip) {
       return res.status(404).json({ error: 'Group not found' });
     }
+    await deleteTripImages(trip);
     const result = await ArchivedTrip.deleteOne({ _id: archivedTripId });
     if (result.deletedCount === 0) {
       return res.status(404).json({ message: 'Archived trip not found' });

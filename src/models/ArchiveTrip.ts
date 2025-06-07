@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
-import { IImageModel, ImageModalSchema } from './Trip';
+import { IImageModel, ImageModalSchema, ITripRating, TripRatingSchema } from './Trip';
 
 export interface IArchivedTrip extends Document {
   name: string;
@@ -14,6 +14,10 @@ export interface IArchivedTrip extends Document {
   createdBy: mongoose.Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+  /** All user‐submitted ratings on this trip */
+  ratings: ITripRating[];
+  /** Average of `ratings.value` (0 if none) */
+  avg_rating?: number;
 }
 
 type IArchivedTripModel = Model<IArchivedTrip>;
@@ -31,8 +35,10 @@ const archivedTripSchema = new Schema(
     },
     description: { type: String },
     images: [ImageModalSchema],
+    ratings: [TripRatingSchema],
+    avg_rating: { type: Number, default: 0.0, min: 0.0, max: 5.0 },
     main_image: ImageModalSchema,
-    tags: [{ type: String }],
+    tags: [{ type: String, index: true }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true },
