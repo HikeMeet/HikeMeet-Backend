@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
-import { removeOldImage } from '../helpers/cloudinaryHelper';
+// import { removeOldImage } from '../helpers/cloudinaryHelper';
 
 export interface IImageModel {
   url: string;
@@ -78,5 +78,28 @@ const tripSchema = new Schema(
   },
   { timestamps: true },
 );
+
+// tripSchema.pre('findOneAndDelete', async function (next) {
+//   const docToDelete = await this.model.findOne(this.getFilter());
+
+//   if (!docToDelete) return next();
+
+//   // Remove each image in images[]
+//   if (docToDelete.images && docToDelete.images.length > 0) {
+//     for (const img of docToDelete.images) {
+//       const publicId = img.image_id;
+//       if (publicId) {
+//         await removeOldImage(publicId);
+//       }
+//     }
+//   }
+
+//   // Remove main image
+//   if (docToDelete.main_image && docToDelete.main_image.image_id) {
+//     await removeOldImage(docToDelete.main_image.image_id);
+//   }
+
+//   next();
+// });
 
 export const Trip: ITripModel = model<ITrip, ITripModel>('Trip', tripSchema);
