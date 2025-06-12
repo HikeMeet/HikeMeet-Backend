@@ -670,7 +670,6 @@ router.get('/list', async (req: Request, res: Response) => {
     if (status) {
       filter.status = status;
     }
-
     const groups = await Group.find(filter);
     return res.status(200).json(groups);
   } catch (err) {
@@ -685,22 +684,16 @@ router.get('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { getTrip } = req.query;
     const group = await Group.findById(id);
-    console.log('1111');
     if (!group) {
-      console.log('22222');
       return res.status(404).json({ error: 'Group not found' });
     }
     if (getTrip && getTrip === 'true') {
-      console.log('33333');
       const trip = await Trip.findById(group.trip);
-      if (!trip) {
-        console.log('4444');
-        return res.status(404).json({ error: 'Trip not found' });
-      }
-      console.log('5555');
-      return res.status(200).json({ group, trip });
+      return res.status(200).json({
+        group,
+        trip: trip && !trip.archived ? trip : undefined,
+      });
     }
-    console.log('666');
     return res.status(200).json({ group });
   } catch (err) {
     console.error('Error getting group by ID:', err);
