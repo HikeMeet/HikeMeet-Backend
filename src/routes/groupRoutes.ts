@@ -670,7 +670,6 @@ router.get('/list', async (req: Request, res: Response) => {
     if (status) {
       filter.status = status;
     }
-
     const groups = await Group.find(filter);
     return res.status(200).json(groups);
   } catch (err) {
@@ -692,7 +691,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       const trip = await Trip.findById(group.trip);
       return res.status(200).json({
         group,
-        trip: trip || undefined,
+        trip: trip && !trip.archived ? trip : undefined,
       });
     }
     return res.status(200).json({ group });
