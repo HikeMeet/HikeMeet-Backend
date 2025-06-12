@@ -3,3 +3,5 @@ node_modules
 .env.*
 .eslintignore
 dist
+kubernetes/hikemeet-secrets.yaml
+kubernetes/hikemeet-secrets-prod.yaml

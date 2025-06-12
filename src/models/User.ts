@@ -98,8 +98,6 @@ const userSchema = new Schema({
       _id: false, //cancel _id automatic (its was problem)
     },
   ],
-  chatrooms_with: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
-  chatrooms_groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: [] }],
   favorite_trips: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: [] }],
   trip_history: [tripHistorySchema],
   firebase_id: { type: String },
@@ -116,6 +114,8 @@ const userSchema = new Schema({
       default: 'public',
     },
   },
+  chatrooms_with: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
+  chatrooms_groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: [] }],
   muted_chats: { type: [String], default: [] },
 });
 

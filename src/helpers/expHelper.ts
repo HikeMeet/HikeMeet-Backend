@@ -29,7 +29,6 @@ export async function updateUserExp(userId: string, amount: number) {
     });
 
     if (previousRank !== newRank) {
-      console.log('User leveled up!');
       await notifyUserLevelUp(new mongoose.Types.ObjectId(userId), previousRank, newRank);
     }
   } catch (error) {
