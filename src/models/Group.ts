@@ -35,7 +35,10 @@ export interface IGroup extends Document {
   pending: IGroupPending[];
   scheduled_start?: Date;
   scheduled_end?: Date;
-  meeting_point?: string;
+  meeting_point?: {
+    address: string;
+    coordinates: [number, number]; // [longitude, latitude]
+  };
   images?: IImageModel[];
   main_image?: IImageModel;
   created_at: Date;
@@ -86,7 +89,14 @@ const groupSchema = new Schema<IGroup>(
     pending: [GroupPendingSchema],
     scheduled_start: { type: Date },
     scheduled_end: { type: Date },
-    meeting_point: { type: String },
+    meeting_point: {
+      address: { type: String, required: true },
+      coordinates: {
+        type: [Number],
+        required: true,
+        index: '2dsphere', // Allows geospatial queries
+      },
+    },
     images: [ImageModalSchema],
     main_image: ImageModalSchema,
   },
