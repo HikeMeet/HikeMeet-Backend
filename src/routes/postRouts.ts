@@ -176,6 +176,14 @@ router.get('/all', async (req: Request, res: Response) => {
         select: 'username profile_picture friends privacySettings',
       })
       .populate({
+        path: 'original_post',
+        select: 'content images author created_at',
+        populate: { path: 'author', select: 'username profile_picture' },
+      })
+      .populate('attached_trips')
+      .populate('attached_groups')
+
+      .populate({
         path: 'likes',
         select: 'username profile_picture first_name last_name',
       })

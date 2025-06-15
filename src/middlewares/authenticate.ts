@@ -19,12 +19,9 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   if (!match) {
     return res.status(401).json({ error: 'Missing or malformed Authorization header' });
   }
-
   const idToken = match[1];
   try {
-    // Verify the ID token using Firebase Admin SDK
     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    // Attach user info to the request
     req.user = {
       uid: decodedToken.uid,
       email: decodedToken.email,

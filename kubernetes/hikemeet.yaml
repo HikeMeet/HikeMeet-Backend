@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hikemeet-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hikemeet
+  template:
+    metadata:
+      labels:
+        app: hikemeet
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: preferred-worker
+                    operator: In
+                    values:
+                      - 'true'
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: 'kubernetes.io/hostname'
+                labelSelector:
+                  matchLabels:
+                    app: hikemeet
+      containers:
+        - name: hikemeet
+          image: wooozai/hikemeet:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: hikemeet-secrets
+          command: ['npm', 'start']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hikemeet-service
+spec:
+  type: ClusterIP
+  selector:
+    app: hikemeet
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
