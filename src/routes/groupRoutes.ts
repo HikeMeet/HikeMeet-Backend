@@ -48,11 +48,6 @@ router.post('/create', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Trip not found' });
     }
 
-    let effective_meeting_point = meeting_point;
-    if (!meeting_point) {
-      effective_meeting_point = found_trip.location.address;
-    }
-
     // Check if the creator user exists (using created_by)
     const userExists = await User.findById(created_by);
     if (!userExists) {
@@ -100,7 +95,7 @@ router.post('/create', async (req: Request, res: Response) => {
       pending: [], // pending list is initially empty
       scheduled_start: finalScheduledStart,
       scheduled_end: finalScheduledEns, // remain as provided
-      meeting_point: effective_meeting_point,
+      meeting_point,
       main_image: {
         url: DEFAULT_GROUP_IMAGE_URL,
         image_id: DEFAULT_GROUP_IMAGE_ID,
