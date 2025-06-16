@@ -6,8 +6,6 @@ name: Hikemeet Node.js CI
 on:
   push:
     branches: ['production']
-  pull_request:
-    branches: ['production']
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,5 +29,22 @@ jobs:
       - run: npm run build --if-present
         name: build project
         #- run: npm test
-      - run: curl https://api.render.com/deploy/srv-cvv5jd3e5dus73e9mmig?key=YZJVNfNGTEo
-        name: deploy app
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/hikemeet:latest .
+
+      - name: Push Docker image
+        run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/hikemeet:latest
+
+      - name: Set up kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > kubeconfig
+          mkdir -p $HOME/.kube
+          mv kubeconfig $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Restart deployment
+        run: kubectl rollout restart deployment hikemeet-deployment

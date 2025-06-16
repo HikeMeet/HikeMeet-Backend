@@ -5,12 +5,28 @@ import { User } from '../models/User';
 // Run the cron job every 10 seconds
 cron.schedule(' * * * * *', async () => {
   const now = new Date();
-
-  // Manually adjust the time by adding 2 hours (for example)
   const adjustedTime = new Date(now);
   adjustedTime.setUTCHours(now.getUTCHours() + 3);
   console.log(adjustedTime);
   try {
+    // Revert any active or completed groups whose start is still in the future back to "planned"
+    const revertToPlanned = await Group.updateMany(
+      { status: { $in: ['active', 'completed'] }, scheduled_start: { $gt: adjustedTime } },
+      { $set: { status: 'planned' } },
+    );
+    console.log(`Reverted ${revertToPlanned.modifiedCount} groups back to planned (start > now)`);
+
+    // Reactivate any "completed" groups that are actually still in their scheduled window
+    const revertToActive = await Group.updateMany(
+      {
+        status: 'completed',
+        scheduled_start: { $lte: adjustedTime },
+        scheduled_end: { $gt: adjustedTime },
+      },
+      { $set: { status: 'active' } },
+    );
+    console.log(`Reactivated ${revertToActive.modifiedCount} groups back to active (start ≤ now < end)`);
+
     // Change groups from "planned" to "active" if scheduled_start time has arrived
     const activateResult = await Group.updateMany({ status: 'planned', scheduled_start: { $lte: adjustedTime } }, { $set: { status: 'active' } });
     console.log(`Activated ${activateResult.modifiedCount} groups`);

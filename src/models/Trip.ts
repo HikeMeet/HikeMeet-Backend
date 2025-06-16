@@ -15,7 +15,7 @@ export interface ITripRating {
   /** 1–5 */
   value: number;
 }
-const TripRatingSchema = new Schema(
+export const TripRatingSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     value: { type: Number, min: 1, max: 5, required: true },
@@ -42,6 +42,7 @@ export interface ITrip extends Document {
   ratings: ITripRating[];
   /** Average of `ratings.value` (0 if none) */
   avg_rating?: number;
+  archived: boolean;
 }
 
 export const ImageModalSchema = new Schema<IImageModel>(
@@ -73,6 +74,7 @@ const tripSchema = new Schema(
     ratings: [TripRatingSchema],
     avg_rating: { type: Number, default: 0.0, min: 0.0, max: 5.0 },
     main_image: ImageModalSchema,
+    archived: { type: Boolean, default: false },
     tags: [{ type: String, index: true }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },

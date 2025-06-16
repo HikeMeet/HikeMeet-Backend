@@ -8,12 +8,12 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import './utils/cronJobs';
 console.log('✅ Backend booting...');
-
-dotenv.config({ path: path.join(__dirname, `../.env`) });
+if (process.env.NODE_ENV !== 'prod') {
+  dotenv.config({ path: path.join(__dirname, `../.env`) });
+}
 const env = process.env.NODE_ENV || 'local';
-
 dotenv.config({ path: path.join(__dirname, `../.env.${env}`) });
-
+console.log('Port: ', process.env.PORT);
 console.log(`Running in '${process.env.NODE_ENV}' enviroment`);
 
 import { handleError } from './helpers/error';
@@ -97,6 +97,7 @@ mongoose
 
     // Server Setup
     const port = parseInt(process.env.PORT || '3000', 10);
+    console.log('port', port);
     app.set('port', port);
 
     const server = http.createServer(app);
@@ -126,7 +127,7 @@ mongoose
     }
 
     app.listen(port, '0.0.0.0', () => {
-      console.log('Server is running on http://0.0.0.0:3000');
+      console.log(`Server is running on http://0.0.0.0:${port}`);
     });
     server.on('error', onError);
     server.on('listening', onListening);
@@ -135,23 +136,3 @@ mongoose
     console.error('Error connecting to MongoDB:', err.message);
     process.exit(1); // Exit the process if unable to connect
   });
-
-// import { User } from './models/User';
-// import { Notification } from './models/Notification';
-// async function clearAllNotifications() {
-//   try {
-//     // 2) Delete all Notification documents
-//     const delRes = await Notification.deleteMany({});
-//     console.log(`🗑️  Deleted ${delRes.deletedCount} notifications`);
-
-//     // 3) Reset every user's unreadNotifications counter to 0
-//     const updateRes = await User.updateMany({}, { $set: { unreadNotifications: 0 } });
-//     // depending on your Mongoose version the result field may be modifiedCount
-//     const modified = (updateRes as any).modifiedCount ?? (updateRes as any).nModified;
-//     console.log(`✅ Updated ${modified} users' unreadNotifications to 0`);
-//   } catch (err) {
-//     console.error('❌ Error clearing notifications:', err);
-//   }
-// }
-
-// clearAllNotifications();
