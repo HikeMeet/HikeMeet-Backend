@@ -40,8 +40,6 @@ const DEFAULT_GROUP_IMAGE_URL = `https://res.cloudinary.com/dyebkjnoc/image/uplo
 
 async function removeOldImage(oldImageId: string | undefined, defaultImageId?: string): Promise<void> {
   if (oldImageId && oldImageId !== defaultImageId) {
-    console.log('oldImageId', oldImageId);
-    console.log('oldImageId', defaultImageId);
     const deletionResult: any = await cloudinary.uploader.destroy(oldImageId);
     if (deletionResult.result !== 'ok') {
       console.error('Failed to delete old image from Cloudinary:', deletionResult);
