@@ -1,6 +1,6 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
 import { IImageModel, ImageModalSchema } from './Trip';
-import { removeOldImage, DEFAULT_PROFILE_IMAGE_ID } from '../helpers/cloudinaryHelper';
+import { removeOldImage, DEFAULT_GROUP_IMAGE_ID } from '../helpers/cloudinaryHelper';
 import { Post } from './Post';
 import { User } from './User';
 import { Notification } from './Notification';
@@ -120,7 +120,7 @@ groupSchema.pre('findOneAndDelete', async function (next) {
 
   // Remove main image
   if (docToDelete.main_image && docToDelete.main_image.image_id) {
-    await removeOldImage(docToDelete.main_image.image_id, DEFAULT_PROFILE_IMAGE_ID);
+    await removeOldImage(docToDelete.main_image.image_id, DEFAULT_GROUP_IMAGE_ID);
   }
 
   // Remove notifications related to this group and, if unread, decrement user's unread count.
