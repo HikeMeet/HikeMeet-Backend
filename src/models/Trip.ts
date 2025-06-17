@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema, model } from 'mongoose';
-import { removeOldImage } from '../helpers/cloudinaryHelper';
+import { removeOldImage, DEFAULT_TRIP_IMAGE_ID } from '../helpers/cloudinaryHelper';
 
 export interface IImageModel {
   url: string;
@@ -98,7 +98,7 @@ tripSchema.pre('findOneAndDelete', async function (next) {
 
   // Remove main image
   if (docToDelete.main_image && docToDelete.main_image.image_id) {
-    await removeOldImage(docToDelete.main_image.image_id);
+    await removeOldImage(docToDelete.main_image.image_id, DEFAULT_TRIP_IMAGE_ID);
   }
 
   next();
